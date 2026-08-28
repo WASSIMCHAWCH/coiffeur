@@ -126,10 +126,19 @@ export default function Confirmation() {
             </a>
 
             <Link
+              to={`/suivi?phone=${encodeURIComponent(client.phone)}`}
+              className="btn-ghost"
+              id="btn-confirm-suivi"
+              style={{ justifyContent: 'center', borderColor: 'var(--red)', color: 'var(--red)', fontWeight: 600 }}
+            >
+              🔍 Suivre le statut de ma réservation
+            </Link>
+
+            <Link
               to="/"
               className="btn-ghost"
               id="btn-confirm-home"
-              style={{ justifyContent: 'center', marginTop: '8px' }}
+              style={{ justifyContent: 'center', marginTop: '4px' }}
             >
               ← Retour à l'accueil
             </Link>

@@ -6,6 +6,7 @@ import Booking      from './pages/Booking';
 import Confirmation from './pages/Confirmation';
 import Contact      from './pages/Contact';
 import Admin        from './pages/Admin';
+import Suivi        from './pages/Suivi';
 import { useEffect, useState } from 'react';
 import { getShopInfo } from './services/api';
 
@@ -25,6 +26,8 @@ export default function App() {
             <Route path="/"            element={<Home />} />
             <Route path="/booking"     element={<Booking />} />
             <Route path="/confirmation" element={<Confirmation />} />
+            <Route path="/suivi"       element={<Suivi />} />
+            <Route path="/mes-rendez-vous" element={<Suivi />} />
             <Route path="/contact"     element={<Contact />} />
             <Route path="/admin"       element={<Admin />} />
             {/* 404 */}

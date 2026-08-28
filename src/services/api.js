@@ -105,3 +105,8 @@ export async function cancelAppointment(appointmentId) {
 export async function updateAppointmentStatus(appointmentId, status) {
   return fetchPost({ action: 'update_status', appointmentId, status });
 }
+
+// ── GET /appointment_status (suivi client) ──
+export async function getAppointmentStatus(phone, id) {
+  return fetchGet({ action: 'appointment_status', phone: phone || '', id: id || '' });
+}

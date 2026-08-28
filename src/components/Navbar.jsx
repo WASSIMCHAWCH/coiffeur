@@ -117,6 +117,15 @@ export default function Navbar() {
               </li>
               <li>
                 <Link
+                  to="/suivi"
+                  className={location.pathname === '/suivi' ? 'active' : ''}
+                  onClick={() => setOpen(false)}
+                >
+                  🔍 Mes RDV
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/contact"
                   className={isContactActive ? 'active' : ''}
                   onClick={() => setOpen(false)}
@@ -172,6 +181,13 @@ export default function Navbar() {
           >
             ✂️ Services
           </a>
+          <Link
+            to="/suivi"
+            className={location.pathname === '/suivi' ? 'active' : ''}
+            onClick={() => setOpen(false)}
+          >
+            🔍 Mes Rendez-vous
+          </Link>
           <Link
             to="/booking"
             className={isBookingActive ? 'active' : ''}

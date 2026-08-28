@@ -36,6 +36,8 @@ function doGet(e) {
         return jsonResponse(getAppointments(params.date));
       case 'schedule':
         return jsonResponse(getSchedule());
+      case 'appointment_status':
+        return jsonResponse(getAppointmentStatusByPhoneOrId(params.phone, params.id));
       default:
         return jsonResponse({ status: 'ok', message: 'GAR3A API v1.0' });
     }
@@ -299,6 +301,40 @@ function getAppointmentsByDate(date) {
       if (!targetDateISO) return true; // Tout renvoyer si pas de filtre
       const rowDateISO = formatDateToISOStr(row[1]);
       return rowDateISO === targetDateISO;
+    })
+    .map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h.toLowerCase()] = row[i]);
+      return {
+        id:          String(obj.id),
+        date:        formatDateToISOStr(obj.date),
+        startTime:   formatTimeStr(obj.start_time),
+        endTime:     formatTimeStr(obj.end_time),
+        clientName:  String(obj.client_name || ''),
+        clientPhone: String(obj.client_phone || ''),
+        serviceId:   String(obj.service_id || ''),
+        serviceName: String(obj.service_name || ''),
+        status:      String(obj.status || 'CONFIRMED'),
+        createdAt:   String(obj.created_at || ''),
+      };
+    });
+}
+
+// ── GET /appointment_status (suivi client) ──────────────────
+function getAppointmentStatusByPhoneOrId(phone, id) {
+  const sheet = getSheet('Appointments');
+  const [headers, ...rows] = sheet.getDataRange().getValues();
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  const cleanId = String(id || '').trim();
+
+  return rows
+    .filter(row => {
+      if (!row[0] || row[0] === 'ID') return false;
+      const rowId = String(row[0]).trim();
+      const rowPhone = String(row[5] || '').replace(/\D/g, '');
+      if (cleanId && rowId === cleanId) return true;
+      if (cleanPhone && cleanPhone.length >= 6 && (rowPhone.includes(cleanPhone) || cleanPhone.includes(rowPhone))) return true;
+      return false;
     })
     .map(row => {
       const obj = {};
