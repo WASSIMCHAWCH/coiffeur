@@ -24,6 +24,17 @@ function generateDisplaySlots(open = '09:00', close = '21:00', step = 30) {
 }
 
 export default function Admin() {
+  // ── Authentification PIN ──
+  const defaultPin = import.meta.env.VITE_ADMIN_PIN || '2026';
+  const [pin, setPin] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('gar3a_admin_auth') === 'true';
+  });
+  const [pinError, setPinError] = useState(false);
+  const [showChangePin, setShowChangePin] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [pinChangedMsg, setPinChangedMsg] = useState('');
+
   const [selectedDate, setSelectedDate] = useState(formatDateISO(new Date()));
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
@@ -38,12 +49,72 @@ export default function Admin() {
   const dayIndex = getDayIndex(selectedDate); // 0=Lun .. 4=Ven .. 6=Dim
   const isFriday = dayIndex === 4;
 
+  const currentStoredPin = localStorage.getItem('gar3a_custom_pin') || defaultPin;
+
+  // Validation du PIN
+  const handlePinSubmit = (inputPin) => {
+    const codeToVerify = inputPin || pin;
+    if (codeToVerify === currentStoredPin) {
+      setIsAuthenticated(true);
+      localStorage.setItem('gar3a_admin_auth', 'true');
+      setPinError(false);
+      setPin('');
+    } else {
+      setPinError(true);
+      setPin('');
+      setTimeout(() => setPinError(false), 1500);
+    }
+  };
+
+  // Clavier tactile numérique
+  const handleKeypadPress = (val) => {
+    if (val === 'CLEAR') {
+      setPin('');
+      return;
+    }
+    if (val === 'BACK') {
+      setPin(prev => prev.slice(0, -1));
+      return;
+    }
+    if (pin.length < 6) {
+      const nextPin = pin + val;
+      setPin(nextPin);
+      if (nextPin.length === currentStoredPin.length) {
+        handlePinSubmit(nextPin);
+      }
+    }
+  };
+
+  // Déconnexion
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('gar3a_admin_auth');
+    setPin('');
+  };
+
+  // Modification du code PIN
+  const handleChangePinSubmit = (e) => {
+    e.preventDefault();
+    if (newPinInput.length >= 4) {
+      localStorage.setItem('gar3a_custom_pin', newPinInput);
+      setPinChangedMsg('✅ Nouveau code PIN enregistré avec succès !');
+      setTimeout(() => {
+        setShowChangePin(false);
+        setPinChangedMsg('');
+        setNewPinInput('');
+      }, 1500);
+    }
+  };
+
   // Charger les services
   useEffect(() => {
-    getServices().then(setServices).catch(() => {});
-  }, []);
+    if (isAuthenticated) {
+      getServices().then(setServices).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   const load = (date) => {
+    if (!isAuthenticated) return;
     setLoading(true);
     getAppointments(date)
       .then(data => setAppointments(Array.isArray(data) ? data : data?.appointments || []))
@@ -58,6 +129,12 @@ export default function Admin() {
       })
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      load(selectedDate);
+    }
+  }, [selectedDate, isAuthenticated]);
 
   useEffect(() => { load(selectedDate); }, [selectedDate]);
 
@@ -128,6 +205,115 @@ export default function Admin() {
     return `Bonjour ${appt.clientName}, je vous confirme votre rendez-vous chez Mohamed Hechi (Gar3a) aujourd'hui à ${appt.startTime} pour ${appt.serviceName}. À tout à l'heure ! ✂️`;
   };
 
+  // ── Écran de Verrouillage PIN ──
+  if (!isAuthenticated) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', background: 'var(--bg-surface)' }}>
+        <div className={`card-dark animate-fadeIn ${pinError ? 'animate-shake' : ''}`} style={{ width: '100%', maxWidth: '380px', padding: '32px 24px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.08)' }}>
+          {/* Avatar Mohamed */}
+          <div style={{ display: 'inline-block', position: 'relative', marginBottom: '16px' }}>
+            <img
+              src={mohamedImg}
+              alt="Mohamed Hechi"
+              style={{
+                width: '74px',
+                height: '74px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid var(--red)',
+                boxShadow: '0 4px 16px rgba(220, 38, 38, 0.25)'
+              }}
+            />
+            <span style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              background: 'var(--red)',
+              color: '#fff',
+              borderRadius: '50%',
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.75rem',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+            }}>
+              🔒
+            </span>
+          </div>
+
+          <h1 style={{ fontFamily: 'Playfair Display', fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '4px' }}>
+            Espace Administrateur
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
+            Saisissez le code PIN pour accéder au planning
+          </p>
+
+          {/* Indicateurs visuels du PIN (Bulles) */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginBottom: '24px' }}>
+            {[0, 1, 2, 3].map(i => (
+              <div
+                key={i}
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  border: `2px solid ${pinError ? 'var(--danger)' : pin.length > i ? 'var(--red)' : 'var(--border)'}`,
+                  background: pin.length > i ? 'var(--red)' : 'transparent',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: pin.length > i ? 'scale(1.15)' : 'scale(1)'
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Message d'erreur */}
+          {pinError && (
+            <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, marginBottom: '16px' }}>
+              ❌ Code PIN incorrect, veuillez réessayer
+            </div>
+          )}
+
+          {/* Clavier Tactile Numérique (Idéal smartphone) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(btn => (
+              <button
+                key={btn}
+                onClick={() => {
+                  if (btn === 'C') handleKeypadPress('CLEAR');
+                  else if (btn === '⌫') handleKeypadPress('BACK');
+                  else handleKeypadPress(btn);
+                }}
+                style={{
+                  padding: '16px 0',
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  background: btn === 'C' || btn === '⌫' ? '#F1F5F9' : '#FFFFFF',
+                  color: btn === 'C' ? 'var(--danger)' : 'var(--text-primary)',
+                  cursor: 'pointer',
+                  transition: 'var(--transition-fast)',
+                }}
+              >
+                {btn}
+              </button>
+            ))}
+          </div>
+
+          {/* Formulaire manuel ou bouton retour */}
+          <div style={{ marginTop: '12px' }}>
+            <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>
+              ← Retour au site public
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Tableau de bord Administrateur Connecté ──
   return (
     <main style={{ minHeight: '100vh', padding: '32px 16px', background: 'var(--bg-surface)' }}>
       <div className="container-custom" style={{ maxWidth: '800px' }}>
@@ -161,30 +347,50 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Sélecteur de date */}
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {[
-                { label: "Aujourd'hui", date: formatDateISO(today) },
-                { label: 'Demain', date: formatDateISO(addDays(today, 1)) },
-                { label: '+2j',   date: formatDateISO(addDays(today, 2)) },
-              ].map(btn => (
-                <button
-                  key={btn.label}
-                  onClick={() => setSelectedDate(btn.date)}
-                  className={selectedDate === btn.date ? 'btn-gold' : 'btn-ghost'}
-                  style={{ padding: '8px 12px', fontSize: '0.75rem' }}
-                >
-                  {btn.label}
-                </button>
-              ))}
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="form-input"
-                style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem', minHeight: '36px' }}
-              />
+            {/* Boutons Sécurité & Déconnexion */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={() => setShowChangePin(true)}
+                className="btn-ghost"
+                style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                title="Modifier le code PIN"
+              >
+                🔑 Code PIN
+              </button>
+              <button
+                onClick={handleLogout}
+                className="btn-danger"
+                style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                title="Se déconnecter de l'espace admin"
+              >
+                🔒 Déconnexion
+              </button>
             </div>
+          </div>
+
+          {/* Sélecteur de date */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+            {[
+              { label: "Aujourd'hui", date: formatDateISO(today) },
+              { label: 'Demain', date: formatDateISO(addDays(today, 1)) },
+              { label: '+2j',   date: formatDateISO(addDays(today, 2)) },
+            ].map(btn => (
+              <button
+                key={btn.label}
+                onClick={() => setSelectedDate(btn.date)}
+                className={selectedDate === btn.date ? 'btn-gold' : 'btn-ghost'}
+                style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+              >
+                {btn.label}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="form-input"
+              style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem', minHeight: '36px' }}
+            />
           </div>
         </div>
 
@@ -469,6 +675,63 @@ export default function Admin() {
                     <span>Enregistrer</span>
                   </button>
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn-ghost" style={{ flex: 1 }}>
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de modification du code PIN */}
+        {showChangePin && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 2000,
+          }}>
+            <div className="card-dark animate-scaleIn" style={{ width: '100%', maxWidth: '380px', padding: '24px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔑</div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                Modifier le Code PIN
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '20px' }}>
+                Choisissez un nouveau code PIN à 4 chiffres minimum
+              </p>
+
+              {pinChangedMsg && (
+                <div style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.85rem', marginBottom: '16px' }}>
+                  {pinChangedMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleChangePinSubmit}>
+                <div className="form-group">
+                  <input
+                    type="password"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    maxLength="6"
+                    value={newPinInput}
+                    onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                    className="form-input"
+                    placeholder="Ex: 2026"
+                    style={{ textAlign: 'center', letterSpacing: '0.3em', fontSize: '1.3rem', fontWeight: 700 }}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button type="submit" className="btn-gold" style={{ flex: 1 }}>
+                    <span>Enregistrer</span>
+                  </button>
+                  <button type="button" onClick={() => setShowChangePin(false)} className="btn-ghost" style={{ flex: 1 }}>
                     Annuler
                   </button>
                 </div>
