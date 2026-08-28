@@ -115,7 +115,7 @@ export default function Suivi() {
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="Ex: 26 404 151"
+                placeholder="Ex: 20 000 000"
                 className="form-input"
                 style={{ flex: 1, minWidth: '200px' }}
                 required

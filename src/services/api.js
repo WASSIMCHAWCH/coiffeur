@@ -108,5 +108,30 @@ export async function updateAppointmentStatus(appointmentId, status) {
 
 // ── GET /appointment_status (suivi client) ──
 export async function getAppointmentStatus(phone, id) {
-  return fetchGet({ action: 'appointment_status', phone: phone || '', id: id || '' });
+  try {
+    const res = await fetchGet({ action: 'appointment_status', phone: phone || '', id: id || '' });
+    if (Array.isArray(res)) return res;
+    if (res && (res.appointments || res.id)) return res.appointments || [res];
+  } catch (e) {
+    console.warn('appointment_status API fallback', e);
+  }
+
+  // Fallback : récupérer les rendez-vous et filtrer côté client
+  try {
+    const all = await fetchGet({ action: 'appointments' });
+    if (Array.isArray(all)) {
+      const cleanQPhone = String(phone || '').replace(/\D/g, '');
+      const cleanQId = String(id || '').trim();
+      return all.filter(a => {
+        const aPhone = String(a.clientPhone || '').replace(/\D/g, '');
+        const aId = String(a.id || '').trim();
+        if (cleanQId && aId === cleanQId) return true;
+        if (cleanQPhone && cleanQPhone.length >= 6 && (aPhone.includes(cleanQPhone) || cleanQPhone.includes(aPhone))) return true;
+        return false;
+      });
+    }
+  } catch (err) {
+    console.error('getAppointmentStatus error', err);
+  }
+  return [];
 }
