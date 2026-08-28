@@ -41,7 +41,7 @@ export default function Confirmation() {
         <div className="confirmation-card animate-scaleIn">
 
           {/* Icône succès */}
-          <div className="confirmation-icon">✓</div>
+          <div className="confirmation-icon" style={{ background: '#FFFBEB', color: '#D97706', border: '2px solid #FDE68A' }}>⏳</div>
 
           <h1 style={{
             fontFamily: 'Playfair Display, serif',
@@ -49,12 +49,29 @@ export default function Confirmation() {
             fontWeight: 700,
             marginBottom: '8px',
           }}>
-            Rendez-vous confirmé !
+            Demande envoyée !
           </h1>
 
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '32px', lineHeight: 1.6 }}>
+          <div style={{
+            display: 'inline-block',
+            background: '#FFFBEB',
+            color: '#D97706',
+            border: '1px solid #FDE68A',
+            borderRadius: '100px',
+            padding: '4px 14px',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em'
+          }}>
+            ⏳ Statut : En attente de validation
+          </div>
+
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '28px', lineHeight: 1.6 }}>
             Bonjour <strong style={{ color: 'var(--red)' }}>{client.name}</strong>,<br />
-            votre rendez-vous chez <strong>Mohamed Hechi (Gar3a)</strong> est confirmé.
+            votre demande de réservation a bien été envoyée à <strong>Mohamed Hechi (Gar3a)</strong>.<br />
+            Elle est actuellement en attente de confirmation.
           </p>
 
           {/* Détails */}

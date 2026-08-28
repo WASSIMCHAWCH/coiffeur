@@ -190,11 +190,23 @@ export default function Admin() {
   const displaySlots = generateDisplaySlots();
   const apptByTime   = Object.fromEntries(appointments.map(a => [a.startTime, a]));
 
-  const statusColor = { CONFIRMED: 'status-confirmed', CANCELLED: 'status-cancelled', COMPLETED: 'status-completed' };
-  const statusLabel = { CONFIRMED: 'Confirmé', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
+  const statusColor = {
+    PENDING:   'status-pending',
+    CONFIRMED: 'status-confirmed',
+    CANCELLED: 'status-cancelled',
+    COMPLETED: 'status-completed',
+  };
+
+  const statusLabel = {
+    PENDING:   'En attente ⏳',
+    CONFIRMED: 'Confirmé ✅',
+    CANCELLED: 'Refusé / Annulé ❌',
+    COMPLETED: 'Terminé ✂️',
+  };
 
   // Filtrage
   const filteredAppointments = appointments.filter(a => {
+    if (filter === 'PENDING') return a.status === 'PENDING';
     if (filter === 'CONFIRMED') return a.status === 'CONFIRMED';
     if (filter === 'COMPLETED') return a.status === 'COMPLETED';
     if (filter === 'CANCELLED') return a.status === 'CANCELLED';
@@ -202,6 +214,9 @@ export default function Admin() {
   });
 
   const getReminderMessage = (appt) => {
+    if (appt.status === 'PENDING') {
+      return `Bonjour ${appt.clientName}, votre demande de rendez-vous chez Mohamed Hechi (Gar3a) pour ${appt.serviceName} le ${formatDateFR(selectedDate)} à ${appt.startTime} a bien été VALIDÉE et CONFIRMÉE ! À bientôt ✂️`;
+    }
     return `Bonjour ${appt.clientName}, je vous confirme votre rendez-vous chez Mohamed Hechi (Gar3a) aujourd'hui à ${appt.startTime} pour ${appt.serviceName}. À tout à l'heure ! ✂️`;
   };
 
@@ -418,16 +433,17 @@ export default function Admin() {
         )}
 
         {/* Statistiques clés */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '24px' }}>
           {[
-            { label: 'Total RDV',  value: appointments.length,                                       color: 'var(--text-primary)', bg: '#FFFFFF' },
-            { label: 'Confirmés',  value: appointments.filter(a => a.status === 'CONFIRMED').length, color: 'var(--success)',       bg: '#F0FDF4' },
-            { label: 'Terminés',   value: appointments.filter(a => a.status === 'COMPLETED').length, color: 'var(--blue)',          bg: '#EFF6FF' },
-            { label: 'Annulés',    value: appointments.filter(a => a.status === 'CANCELLED').length, color: 'var(--danger)',        bg: '#FEF2F2' },
+            { label: 'Total RDV',   value: appointments.length,                                        color: 'var(--text-primary)', bg: '#FFFFFF' },
+            { label: 'En attente',  value: appointments.filter(a => a.status === 'PENDING').length,   color: '#D97706',              bg: '#FFFBEB' },
+            { label: 'Confirmés',   value: appointments.filter(a => a.status === 'CONFIRMED').length, color: 'var(--success)',       bg: '#F0FDF4' },
+            { label: 'Terminés',    value: appointments.filter(a => a.status === 'COMPLETED').length, color: 'var(--blue)',          bg: '#EFF6FF' },
+            { label: 'Refusés',     value: appointments.filter(a => a.status === 'CANCELLED').length, color: 'var(--danger)',        bg: '#FEF2F2' },
           ].map(stat => (
-            <div key={stat.label} className="card-dark" style={{ textAlign: 'center', padding: '14px 10px', background: stat.bg }}>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+            <div key={stat.label} className="card-dark" style={{ textAlign: 'center', padding: '12px 8px', background: stat.bg }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                 {stat.label}
               </div>
             </div>
@@ -438,9 +454,11 @@ export default function Admin() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {[
             { key: 'ALL',       label: `Tous (${appointments.length})` },
-            { key: 'CONFIRMED', label: `Confirmés (${appointments.filter(a => a.status === 'CONFIRMED').length})` },
-            { key: 'COMPLETED', label: `Terminés (${appointments.filter(a => a.status === 'COMPLETED').length})` },
-            { key: 'TIMELINE',  label: '⏱ Vue Grille (09h-21h)' },
+            { key: 'PENDING',   label: `⏳ En attente (${appointments.filter(a => a.status === 'PENDING').length})` },
+            { key: 'CONFIRMED', label: `✅ Confirmés (${appointments.filter(a => a.status === 'CONFIRMED').length})` },
+            { key: 'COMPLETED', label: `✂️ Terminés (${appointments.filter(a => a.status === 'COMPLETED').length})` },
+            { key: 'CANCELLED', label: `❌ Refusés (${appointments.filter(a => a.status === 'CANCELLED').length})` },
+            { key: 'TIMELINE',  label: '⏱ Vue Grille' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -477,7 +495,7 @@ export default function Admin() {
                       <div className="admin-client-service">✂️ {appt.serviceName}</div>
                       <div className="admin-client-phone">📞 {appt.clientPhone}</div>
                     </div>
-                    <span className={`status-badge ${statusColor[appt.status] || 'status-confirmed'}`}>
+                    <span className={`status-badge ${statusColor[appt.status] || 'status-pending'}`}>
                       {statusLabel[appt.status] || appt.status}
                     </span>
                   </div>
@@ -485,8 +503,8 @@ export default function Admin() {
               }
 
               return (
-                <div key={time} className="admin-empty-slot">
-                  <div className="admin-time" style={{ color: 'var(--text-muted)' }}>{time}</div>
+                <div key={time} className="admin-day-card admin-slot-free">
+                  <div className="admin-time">{time}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', flex: 1 }}>— Libre</div>
                   <button
                     onClick={() => { setQuickSlot(time); setShowAddModal(true); }}
@@ -512,7 +530,7 @@ export default function Admin() {
               </div>
             ) : (
               filteredAppointments.map(appt => (
-                <div key={appt.id} className="card-dark animate-fadeIn" style={{ marginBottom: '12px', padding: '16px 20px' }}>
+                <div key={appt.id} className="card-dark animate-fadeIn" style={{ marginBottom: '12px', padding: '16px 20px', borderLeft: appt.status === 'PENDING' ? '4px solid #D97706' : appt.status === 'CONFIRMED' ? '4px solid #16A34A' : appt.status === 'COMPLETED' ? '4px solid #2563EB' : '4px solid #DC2626' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -524,7 +542,7 @@ export default function Admin() {
                             – {appt.endTime}
                           </span>
                         )}
-                        <span className={`status-badge ${statusColor[appt.status] || 'status-confirmed'}`} style={{ marginLeft: '6px' }}>
+                        <span className={`status-badge ${statusColor[appt.status] || 'status-pending'}`} style={{ marginLeft: '6px' }}>
                           {statusLabel[appt.status] || appt.status}
                         </span>
                       </div>
@@ -541,6 +559,30 @@ export default function Admin() {
 
                     {/* Actions Rapides Barber */}
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {/* Valider / Confirmer pour En Attente */}
+                      {appt.status === 'PENDING' && (
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'CONFIRMED')}
+                          disabled={updatingId === appt.id}
+                          className="btn-gold"
+                          style={{ padding: '8px 14px', fontSize: '0.75rem' }}
+                        >
+                          <span>✓ Confirmer</span>
+                        </button>
+                      )}
+
+                      {/* Refuser pour En Attente */}
+                      {appt.status === 'PENDING' && (
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'CANCELLED')}
+                          disabled={updatingId === appt.id}
+                          className="btn-danger"
+                          style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                        >
+                          ✕ Refuser
+                        </button>
+                      )}
+
                       {/* Appel Direct */}
                       <a
                         href={getPhoneLink(appt.clientPhone)}
@@ -558,7 +600,7 @@ export default function Admin() {
                         rel="noopener noreferrer"
                         className="btn-ghost"
                         style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#16A34A', borderColor: '#BBF7D0' }}
-                        title="Envoyer un rappel WhatsApp"
+                        title="Envoyer un message WhatsApp"
                       >
                         💬 WhatsApp
                       </a>
@@ -576,7 +618,7 @@ export default function Admin() {
                       )}
 
                       {/* Annuler */}
-                      {appt.status !== 'CANCELLED' && (
+                      {appt.status === 'CONFIRMED' && (
                         <button
                           onClick={() => handleStatusChange(appt.id, 'CANCELLED')}
                           disabled={updatingId === appt.id}
@@ -584,6 +626,18 @@ export default function Admin() {
                           style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                         >
                           ✕ Annuler
+                        </button>
+                      )}
+
+                      {/* Rétablir pour Annulé / Refusé */}
+                      {appt.status === 'CANCELLED' && (
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'CONFIRMED')}
+                          disabled={updatingId === appt.id}
+                          className="btn-ghost"
+                          style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#16A34A', borderColor: '#BBF7D0' }}
+                        >
+                          ↺ Rétablir
                         </button>
                       )}
                     </div>

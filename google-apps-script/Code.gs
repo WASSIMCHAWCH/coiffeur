@@ -246,7 +246,7 @@ function createAppointment(data) {
       id, date, time, calculatedEnd,
       clientName.trim(), clientPhone.trim(),
       serviceId, serviceName,
-      'CONFIRMED', now
+      'PENDING', now
     ]);
     
     return {
@@ -259,7 +259,7 @@ function createAppointment(data) {
       serviceName,
       clientName:  clientName.trim(),
       clientPhone: clientPhone.trim(),
-      status2:     'CONFIRMED',
+      status2:     'PENDING',
     };
     
   } finally {
@@ -314,7 +314,7 @@ function getAppointmentsByDate(date) {
         clientPhone: String(obj.client_phone || ''),
         serviceId:   String(obj.service_id || ''),
         serviceName: String(obj.service_name || ''),
-        status:      String(obj.status || 'CONFIRMED'),
+        status:      String(obj.status || 'PENDING'),
         createdAt:   String(obj.created_at || ''),
       };
     });
@@ -348,7 +348,7 @@ function getAppointmentStatusByPhoneOrId(phone, id) {
         clientPhone: String(obj.client_phone || ''),
         serviceId:   String(obj.service_id || ''),
         serviceName: String(obj.service_name || ''),
-        status:      String(obj.status || 'CONFIRMED'),
+        status:      String(obj.status || 'PENDING'),
         createdAt:   String(obj.created_at || ''),
       };
     });
@@ -361,7 +361,7 @@ function cancelAppointment(appointmentId) {
 
 // ── POST /update_status ─────────────────────────────────────
 function updateAppointmentStatus(appointmentId, newStatus) {
-  const validStatus = ['CONFIRMED', 'CANCELLED', 'COMPLETED'];
+  const validStatus = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'];
   if (!validStatus.includes(newStatus)) {
     return { status: 'error', message: 'Statut invalide' };
   }

@@ -52,18 +52,26 @@ export default function Suivi() {
   };
 
   const statusConfig = {
+    PENDING: {
+      label: 'En attente ⏳',
+      badgeClass: 'status-pending',
+      msg: 'Votre demande de réservation a bien été enregistrée. Elle est actuellement en attente de confirmation par Mohamed Hechi.',
+      bg: '#FFFBEB',
+      border: '#FDE68A',
+      color: '#D97706',
+    },
     CONFIRMED: {
       label: 'Confirmé ✅',
       badgeClass: 'status-confirmed',
-      msg: 'Votre rendez-vous est confirmé. Mohamed Hechi vous attend au salon !',
+      msg: 'Votre rendez-vous est validé et confirmé ! Mohamed Hechi vous attend au salon.',
       bg: '#F0FDF4',
       border: '#BBF7D0',
       color: '#16A34A',
     },
     CANCELLED: {
-      label: 'Annulé / Refusé ❌',
+      label: 'Refusé / Annulé ❌',
       badgeClass: 'status-cancelled',
-      msg: 'Ce rendez-vous a été annulé par le salon. N\'hésitez pas à nous contacter pour choisir un autre créneau.',
+      msg: 'Ce rendez-vous a été refusé ou annulé par le salon. N\'hésitez pas à nous contacter pour convenir d\'un autre créneau.',
       bg: '#FEF2F2',
       border: '#FCA5A5',
       color: '#DC2626',
@@ -71,7 +79,7 @@ export default function Suivi() {
     COMPLETED: {
       label: 'Terminé ✂️',
       badgeClass: 'status-completed',
-      msg: 'Prestation effectuée. Merci de votre visite chez GAR3A !',
+      msg: 'Prestation effectuée avec succès. Merci de votre visite chez GAR3A !',
       bg: '#EFF6FF',
       border: '#BFDBFE',
       color: '#2563EB',
