@@ -271,26 +271,49 @@ function getAppointments(date) {
   return appts;
 }
 
+// Formate n'importe quel type Google Sheet (Date, String) en "YYYY-MM-DD"
+function formatDateToISOStr(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const str = String(val).trim();
+  const match = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  return str;
+}
+
 function getAppointmentsByDate(date) {
   const sheet = getSheet('Appointments');
   const [headers, ...rows] = sheet.getDataRange().getValues();
+  const targetDateISO = date ? formatDateToISOStr(date) : '';
   
   return rows
-    .filter(row => row[0] && String(row[1]) === String(date))
+    .filter(row => {
+      if (!row[0] || row[0] === 'ID') return false; // Exclure header et lignes vides
+      if (!targetDateISO) return true; // Tout renvoyer si pas de filtre
+      const rowDateISO = formatDateToISOStr(row[1]);
+      return rowDateISO === targetDateISO;
+    })
     .map(row => {
       const obj = {};
       headers.forEach((h, i) => obj[h.toLowerCase()] = row[i]);
       return {
-        id:          obj.id,
-        date:        obj.date,
-        startTime:   obj.start_time,
-        endTime:     obj.end_time,
-        clientName:  obj.client_name,
-        clientPhone: obj.client_phone,
-        serviceId:   obj.service_id,
-        serviceName: obj.service_name,
-        status:      obj.status,
-        createdAt:   obj.created_at,
+        id:          String(obj.id),
+        date:        formatDateToISOStr(obj.date),
+        startTime:   formatTimeStr(obj.start_time),
+        endTime:     formatTimeStr(obj.end_time),
+        clientName:  String(obj.client_name || ''),
+        clientPhone: String(obj.client_phone || ''),
+        serviceId:   String(obj.service_id || ''),
+        serviceName: String(obj.service_name || ''),
+        status:      String(obj.status || 'CONFIRMED'),
+        createdAt:   String(obj.created_at || ''),
       };
     });
 }
