@@ -141,11 +141,11 @@ function getSchedule() {
     headers.forEach((h, i) => obj[h.toLowerCase()] = row[i]);
     return {
       day:        obj.day,
-      open:       obj.open || null,
-      close:      obj.close || null,
-      breakStart: obj.break_start || null,
-      breakEnd:   obj.break_end || null,
-      active:     obj.active === true || obj.active === 'TRUE' || obj.active === 1,
+      open:       formatTimeStr(obj.open),
+      close:      formatTimeStr(obj.close),
+      breakStart: formatTimeStr(obj.break_start),
+      breakEnd:   formatTimeStr(obj.break_end),
+      active:     obj.active === true || obj.active === 'TRUE' || obj.active === 1 || String(obj.active).toLowerCase() === 'true',
     };
   });
 }
@@ -321,10 +321,37 @@ function updateAppointmentStatus(appointmentId, newStatus) {
 
 // ── Helpers ─────────────────────────────────────────────────
 
-// "09:30" → 570 minutes
+// Formate n'importe quel type Google Sheet (Date, String, Number) en "HH:MM"
+function formatTimeStr(val) {
+  if (!val) return null;
+  if (val instanceof Date) {
+    const h = String(val.getHours()).padStart(2, '0');
+    const m = String(val.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  }
+  const str = String(val).trim();
+  const match = str.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    return `${String(match[1]).padStart(2, '0')}:${match[2]}`;
+  }
+  return str;
+}
+
+// Convertit n'importe quel format d'heure en minutes depuis 00:00
 function timeToMinutes(time) {
-  const [h, m] = String(time).split(':').map(Number);
-  return h * 60 + m;
+  if (!time) return 0;
+  if (time instanceof Date) {
+    return time.getHours() * 60 + time.getMinutes();
+  }
+  if (typeof time === 'number' && time <= 1) {
+    return Math.round(time * 24 * 60);
+  }
+  const str = String(time).trim();
+  const match = str.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+  return 0;
 }
 
 // 570 → "09:30"
@@ -336,15 +363,17 @@ function minutesToTime(minutes) {
 
 // Génère les créneaux entre open/close en excluant la pause
 function generateSlots(open, close, breakStart, breakEnd, duration) {
+  const openTime  = open ? formatTimeStr(open) : '09:00';
+  const closeTime = close ? formatTimeStr(close) : '21:00';
+  
   const slots  = [];
-  const openM  = timeToMinutes(open);
-  const closeM = timeToMinutes(close);
-  const bsM    = breakStart ? timeToMinutes(breakStart) : null;
-  const beM    = breakEnd   ? timeToMinutes(breakEnd)   : null;
+  const openM  = timeToMinutes(openTime);
+  const closeM = timeToMinutes(closeTime);
+  const bsM    = breakStart ? timeToMinutes(formatTimeStr(breakStart)) : null;
+  const beM    = breakEnd   ? timeToMinutes(formatTimeStr(breakEnd))   : null;
   
   let current = openM;
   while (current + duration <= closeM) {
-    // Vérifier qu'on n'empiète pas sur la pause
     const end = current + duration;
     const inBreak = bsM !== null && beM !== null && current < beM && end > bsM;
     
