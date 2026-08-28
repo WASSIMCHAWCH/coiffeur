@@ -35,6 +35,7 @@ export default function Footer({ shop }) {
           <Link to="/"        style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Accueil</Link>
           <Link to="/booking" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Réserver</Link>
           <Link to="/contact" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Contact</Link>
+          <Link to="/admin"   style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none', opacity: 0.7 }}>⚙️ Espace Coiffeur</Link>
         </div>
 
         <div className="gold-divider" />
