@@ -9,17 +9,21 @@ const API_URL = import.meta.env.VITE_API_URL;
 async function fetchGet(params = {}) {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    redirect: 'follow',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-// Helper pour les requêtes POST
+// Helper pour les requêtes POST (évite le preflight CORS bloquant de Google Apps Script)
 async function fetchPost(body = {}) {
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body),
+    redirect: 'follow',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
