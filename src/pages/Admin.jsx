@@ -249,14 +249,15 @@ export default function Admin() {
 
   const apptByTime = Object.fromEntries(processedAppointments.map(a => [a.startTime, a]));
 
-  // Filtrage — les COMPLETED n'apparaissent QUE dans l'onglet COMPLETED
+  // Filtrage — 'ALL' affiche uniquement les RDV actifs à venir (En attente et Confirmés)
+  // Les RDV Terminés, Refusés et Expirés sont accessibles dans leurs onglets respectifs sous 'Plus d'options'
   const filteredAppointments = processedAppointments.filter(a => {
     if (filter === 'PENDING')   return a.status === 'PENDING';
     if (filter === 'CONFIRMED') return a.status === 'CONFIRMED';
     if (filter === 'COMPLETED') return a.status === 'COMPLETED';
     if (filter === 'CANCELLED') return a.status === 'CANCELLED';
-    // "ALL" : tous les rendez-vous actifs (les terminés ont leur propre onglet)
-    return a.status !== 'COMPLETED';
+    // "ALL" (par défaut) : uniquement les rendez-vous actifs à venir
+    return a.status === 'PENDING' || a.status === 'CONFIRMED';
   });
 
   const getReminderMessage = (appt) => {
@@ -601,11 +602,11 @@ export default function Admin() {
             {/* Onglets de filtrage */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
-                { key: 'ALL',       label: `Tous (${processedAppointments.filter(a => a.status !== 'COMPLETED').length})` },
+                { key: 'ALL',       label: `Tous actifs (${processedAppointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED').length})` },
                 { key: 'PENDING',   label: `⏳ En attente (${processedAppointments.filter(a => a.status === 'PENDING').length})` },
                 { key: 'CONFIRMED', label: `✅ Confirmés (${processedAppointments.filter(a => a.status === 'CONFIRMED').length})` },
                 { key: 'COMPLETED', label: `✂️ Terminés (${processedAppointments.filter(a => a.status === 'COMPLETED').length})` },
-                { key: 'CANCELLED', label: `❌ Refusés (${processedAppointments.filter(a => a.status === 'CANCELLED').length})` },
+                { key: 'CANCELLED', label: `❌ Refusés / Expirés (${processedAppointments.filter(a => a.status === 'CANCELLED').length})` },
                 { key: 'TIMELINE',  label: '⏱ Vue Grille' },
               ].map(tab => (
                 <button
