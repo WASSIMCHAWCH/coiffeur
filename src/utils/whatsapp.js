@@ -2,9 +2,9 @@
 // Utils — WhatsApp & Contact links
 // =============================================
 
-const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '21670000000';
+const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '21621376917';
 
-// Génère un lien WhatsApp avec message pré-rempli (vers le numéro du salon)
+// Génère un lien WhatsApp avec message pré-rempli (vers le numéro du salon 21621376917)
 export function getWhatsAppLink(message = '') {
   const encoded = encodeURIComponent(message);
   return `https://wa.me/${WA_NUMBER}${encoded ? `?text=${encoded}` : ''}`;
@@ -57,11 +57,11 @@ export function getCancellationMessageToClient({ clientName, serviceName, date, 
 مرحبا بيك في كل وقت — فريق Gar3a ✂️`;
 }
 
-// Message de notification d'annulation envoyé AU SALON par le client (Arabe Tunisien)
+// Message de notification d'annulation envoyé AU SALON par le client (Arabe Tunisien vers 216 21 376 917)
 export function getCancellationMessageToSalon({ clientName, clientPhone, serviceName, date, time }) {
   return `عسلامة خويا محمد،
 
-حبيت نعلمك إلي نحب نلغي الموعد متاعي :
+حبيت نعلمك إلي ألغيت الموعد متاعي :
 
 👤 الإسم : ${clientName}
 📞 الهاتف : ${clientPhone}
@@ -69,7 +69,7 @@ export function getCancellationMessageToSalon({ clientName, clientPhone, service
 📅 التاريخ : ${date}
 ⏰ الوقت : ${time}
 
-يعطيك الصحة وبارك الله فيك.`;
+شكراً وبارك الله فيك.`;
 }
 
 // Message WhatsApp après confirmation de RDV

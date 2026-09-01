@@ -57,10 +57,9 @@ export default function Suivi() {
 
   // Annuler un RDV côté client
   const handleCancel = async (apptId) => {
-    if (!window.confirm('Etes-vous sûr(e) de vouloir annuler ce rendez-vous ?')) return;
-
-    // Capturer le RDV avant modification pour le modal
     const targetAppt = appointments.find(a => a.id === apptId);
+    if (!targetAppt) return;
+    if (!window.confirm('Êtes-vous sûr(e) de vouloir annuler ce rendez-vous ? Vous devez ensuite envoyer la confirmation WhatsApp à Mohamed Hechi.')) return;
 
     setCancellingId(apptId);
     try {
@@ -72,10 +71,8 @@ export default function Suivi() {
         prev.map(a => a.id === apptId ? { ...a, status: 'CANCELLED' } : a)
       );
       setCancellingId(null);
-      // Afficher le modal de confirmation avec WhatsApp
-      if (targetAppt) {
-        setCancelledAppt(targetAppt);
-      }
+      // Afficher le modal de confirmation avec envoi WhatsApp obligatoire au salon (21621376917)
+      setCancelledAppt(targetAppt);
     }
   };
 
@@ -206,7 +203,7 @@ export default function Suivi() {
             💬 WhatsApp
           </a>
 
-          {/* Bouton Annuler — uniquement pour PENDING et CONFIRMED */}
+          {/* Bouton Annuler / Supprimer — pour PENDING et CONFIRMED */}
           {showCancel && (appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
             <button
               onClick={() => handleCancel(appt.id)}
@@ -214,7 +211,7 @@ export default function Suivi() {
               className="btn-danger"
               style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1 }}
             >
-              {cancellingId === appt.id ? '⏳ Annulation...' : '✕ Annuler ce RDV'}
+              {cancellingId === appt.id ? '⏳ Annulation...' : '✕ Annuler ce rendez-vous'}
             </button>
           )}
         </div>
