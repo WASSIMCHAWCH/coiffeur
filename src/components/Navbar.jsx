@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import mohamedImg from '../assets/mohamed.jpg';
+import { useShopStatus } from '../context/ShopStatusContext.jsx';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [activeHash, setActiveHash] = useState(location.hash);
+  const { isOpen: shopOpen } = useShopStatus();
 
   useEffect(() => {
     setActiveHash(location.hash);
@@ -93,6 +95,34 @@ export default function Navbar() {
                 }}
               />
               <span>GAR3A</span>
+
+              {/* Badge statut salon */}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '3px 9px',
+                borderRadius: '100px',
+                background: shopOpen ? '#F0FDF4' : '#FEF2F2',
+                color: shopOpen ? '#16A34A' : '#DC2626',
+                border: `1px solid ${shopOpen ? '#BBF7D0' : '#FCA5A5'}`,
+                transition: 'all 0.3s ease',
+                whiteSpace: 'nowrap',
+              }}>
+                <span style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: shopOpen ? '#16A34A' : '#DC2626',
+                  animation: shopOpen ? 'pulse-dot 2s infinite' : 'none',
+                  flexShrink: 0,
+                }} />
+                {shopOpen ? 'Ouvert' : 'Fermé'}
+              </span>
             </Link>
 
             {/* Desktop nav */}

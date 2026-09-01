@@ -4,10 +4,49 @@
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '21670000000';
 
-// Génère un lien WhatsApp avec message pré-rempli
+// Génère un lien WhatsApp avec message pré-rempli (vers le numéro du salon)
 export function getWhatsAppLink(message = '') {
   const encoded = encodeURIComponent(message);
   return `https://wa.me/${WA_NUMBER}${encoded ? `?text=${encoded}` : ''}`;
+}
+
+// Génère un lien WhatsApp vers un numéro SPÉCIFIQUE (ex: client)
+export function getWhatsAppLinkTo(phone, message = '') {
+  // Nettoyer le numéro : garder uniquement les chiffres
+  const cleaned = String(phone || '').replace(/\D/g, '');
+  // Ajouter indicatif tunisien si absent
+  const fullNumber = cleaned.startsWith('216') ? cleaned : `216${cleaned}`;
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/${fullNumber}${encoded ? `?text=${encoded}` : ''}`;
+}
+
+// Message de notification d'annulation envoyé AU CLIENT par l'admin
+export function getCancellationMessageToClient({ clientName, serviceName, date, time }) {
+  return `Bonjour ${clientName},
+
+Nous vous informons que votre rendez-vous chez *Mohamed Hechi (Gar3a)* a été *annulé* :
+
+✂️ Service : ${serviceName}
+📅 Date : ${date}
+⏰ Heure : ${time}
+
+Nous nous excusons pour ce désagrément. N'hésitez pas à reprendre rendez-vous via notre site.
+Cordialement — Équipe Gar3a ✂️`;
+}
+
+// Message de notification d'annulation envoyé AU SALON par le client
+export function getCancellationMessageToSalon({ clientName, clientPhone, serviceName, date, time }) {
+  return `Bonjour Mohamed,
+
+Je souhaite vous informer que j'annule mon rendez-vous :
+
+👤 Nom : ${clientName}
+📞 Téléphone : ${clientPhone}
+✂️ Service : ${serviceName}
+📅 Date : ${date}
+⏰ Heure : ${time}
+
+Merci de prendre note.`;
 }
 
 // Message WhatsApp après confirmation de RDV

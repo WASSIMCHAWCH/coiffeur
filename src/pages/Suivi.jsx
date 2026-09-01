@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { getAppointmentStatus } from '../services/api';
-import { formatDateFR } from '../utils/date';
+import { getAppointmentStatus, cancelAppointment } from '../services/api';
+import { formatDateFR, isTimePast } from '../utils/date';
 import { getPhoneLink, getWhatsAppLink } from '../utils/whatsapp';
 import mohamedImg from '../assets/mohamed.jpg';
+import CancelConfirmModal from '../components/CancelConfirmModal.jsx';
 
 export default function Suivi() {
   const [searchParams] = useSearchParams();
@@ -15,6 +16,9 @@ export default function Suivi() {
   const [searched, setSearched] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+  const [cancelSuccess, setCancelSuccess] = useState('');
+  const [cancelledAppt, setCancelledAppt] = useState(null); // Pour le modal WhatsApp
 
   const search = async (phoneToSearch, idToSearch) => {
     const qPhone = (phoneToSearch !== undefined ? phoneToSearch : phone).trim();
@@ -51,10 +55,33 @@ export default function Suivi() {
     search(phone);
   };
 
+  // Annuler un RDV côté client
+  const handleCancel = async (apptId) => {
+    if (!window.confirm('Etes-vous sûr(e) de vouloir annuler ce rendez-vous ?')) return;
+
+    // Capturer le RDV avant modification pour le modal
+    const targetAppt = appointments.find(a => a.id === apptId);
+
+    setCancellingId(apptId);
+    try {
+      await cancelAppointment(apptId);
+    } catch {
+      // Même en cas d'erreur API, on met à jour localement
+    } finally {
+      setAppointments(prev =>
+        prev.map(a => a.id === apptId ? { ...a, status: 'CANCELLED' } : a)
+      );
+      setCancellingId(null);
+      // Afficher le modal de confirmation avec WhatsApp
+      if (targetAppt) {
+        setCancelledAppt(targetAppt);
+      }
+    }
+  };
+
   const statusConfig = {
     PENDING: {
       label: 'En attente ⏳',
-      badgeClass: 'status-pending',
       msg: 'Votre demande de réservation a bien été enregistrée. Elle est actuellement en attente de confirmation par Mohamed Hechi.',
       bg: '#FFFBEB',
       border: '#FDE68A',
@@ -62,7 +89,6 @@ export default function Suivi() {
     },
     CONFIRMED: {
       label: 'Confirmé ✅',
-      badgeClass: 'status-confirmed',
       msg: 'Votre rendez-vous est validé et confirmé ! Mohamed Hechi vous attend au salon.',
       bg: '#F0FDF4',
       border: '#BBF7D0',
@@ -70,15 +96,13 @@ export default function Suivi() {
     },
     CANCELLED: {
       label: 'Refusé / Annulé ❌',
-      badgeClass: 'status-cancelled',
-      msg: 'Ce rendez-vous a été refusé ou annulé par le salon. N\'hésitez pas à nous contacter pour convenir d\'un autre créneau.',
+      msg: "Ce rendez-vous a été refusé ou annulé. N'hésitez pas à nous contacter pour convenir d'un autre créneau.",
       bg: '#FEF2F2',
       border: '#FCA5A5',
       color: '#DC2626',
     },
     COMPLETED: {
       label: 'Terminé ✂️',
-      badgeClass: 'status-completed',
       msg: 'Prestation effectuée avec succès. Merci de votre visite chez GAR3A !',
       bg: '#EFF6FF',
       border: '#BFDBFE',
@@ -86,7 +110,120 @@ export default function Suivi() {
     },
   };
 
+  // Traitement dynamique selon l'heure actuelle :
+  const processedAppointments = appointments.map(appt => {
+    const timeToCheck = appt.endTime || appt.startTime;
+    const isPast = isTimePast(timeToCheck, appt.date);
+    if (isPast) {
+      if (appt.status === 'CONFIRMED') {
+        return { ...appt, status: 'COMPLETED', isAutoCompleted: true };
+      }
+      if (appt.status === 'PENDING') {
+        return { ...appt, status: 'CANCELLED', isExpired: true };
+      }
+    }
+    return appt;
+  });
+
+  // Séparer actifs et terminés
+  const activeAppointments    = processedAppointments.filter(a => a.status !== 'COMPLETED');
+  const completedAppointments = processedAppointments.filter(a => a.status === 'COMPLETED');
+
+  // Carte rendez-vous réutilisable
+  function AppointmentCard({ appt, showCancel }) {
+    const cfg = statusConfig[appt.status] || statusConfig.CONFIRMED;
+    return (
+      <div
+        className="card-dark animate-fadeIn"
+        style={{
+          marginBottom: '16px',
+          padding: '20px',
+          borderLeft: `5px solid ${cfg.color}`,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.05)',
+        }}
+      >
+        {/* Statut Badge */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            N° RDV : <strong>{appt.id}</strong>
+          </span>
+          <span style={{
+            display: 'inline-block',
+            background: cfg.bg,
+            border: `1px solid ${cfg.border}`,
+            color: cfg.color,
+            padding: '4px 12px',
+            borderRadius: '100px',
+            fontWeight: 700,
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+          }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {/* Service */}
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
+          ✂️ {appt.serviceName}
+        </h3>
+
+        {/* Date & Heure */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--bg-surface)', padding: '10px 12px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Date</span>
+            <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>📅 {formatDateFR(appt.date)}</strong>
+          </div>
+          <div style={{ background: 'var(--bg-surface)', padding: '10px 12px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Horaire</span>
+            <strong style={{ fontSize: '0.9rem', color: 'var(--red)' }}>
+              ⏰ {appt.startTime}{appt.endTime ? ` – ${appt.endTime}` : ''}
+            </strong>
+          </div>
+        </div>
+
+        {/* Message statut */}
+        <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: cfg.color, marginBottom: '16px' }}>
+          {cfg.msg}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <a
+            href={getPhoneLink('21376917')}
+            className="btn-ghost"
+            style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1, textAlign: 'center' }}
+          >
+            📞 Appeler le salon
+          </a>
+          <a
+            href={getWhatsAppLink(`Bonjour Mohamed, je vous contacte concernant mon rendez-vous N° ${appt.id} du ${appt.date} à ${appt.startTime}.`)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost"
+            style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1, textAlign: 'center', color: '#16A34A', borderColor: '#BBF7D0' }}
+          >
+            💬 WhatsApp
+          </a>
+
+          {/* Bouton Annuler — uniquement pour PENDING et CONFIRMED */}
+          {showCancel && (appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
+            <button
+              onClick={() => handleCancel(appt.id)}
+              disabled={cancellingId === appt.id}
+              className="btn-danger"
+              style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1 }}
+            >
+              {cancellingId === appt.id ? '⏳ Annulation...' : '✕ Annuler ce RDV'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <>
     <main style={{ minHeight: '100vh', padding: '40px 16px', background: 'var(--bg-surface)' }}>
       <div className="container-custom" style={{ maxWidth: '640px' }}>
 
@@ -102,7 +239,7 @@ export default function Suivi() {
                 borderRadius: '50%',
                 objectFit: 'cover',
                 border: '2.5px solid var(--red)',
-                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)',
               }}
             />
           </div>
@@ -112,7 +249,7 @@ export default function Suivi() {
           </p>
         </div>
 
-        {/* Barre de Recherche par téléphone */}
+        {/* Barre de Recherche */}
         <div className="card-dark" style={{ padding: '24px', marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
@@ -135,7 +272,26 @@ export default function Suivi() {
           </form>
         </div>
 
-        {/* Résultats */}
+        {/* Notification annulation réussie */}
+        {cancelSuccess && (
+          <div style={{
+            background: '#F0FDF4',
+            border: '1px solid #BBF7D0',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 18px',
+            marginBottom: '16px',
+            color: '#16A34A',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            ✅ {cancelSuccess}
+          </div>
+        )}
+
+        {/* Spinner */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '40px' }}>
             <div className="loading-spinner" />
@@ -145,6 +301,7 @@ export default function Suivi() {
           </div>
         )}
 
+        {/* Résultats */}
         {!loading && searched && (
           <div>
             {errorMsg ? (
@@ -162,96 +319,52 @@ export default function Suivi() {
               </div>
             ) : (
               <div>
-                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Vos réservations ({appointments.length})
-                </h2>
+                {/* ── Réservations Actives ── */}
+                {activeAppointments.length > 0 && (
+                  <div>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Vos réservations ({activeAppointments.length})
+                    </h2>
+                    {activeAppointments.map(appt => (
+                      <AppointmentCard key={appt.id} appt={appt} showCancel={true} />
+                    ))}
+                  </div>
+                )}
 
-                {appointments.map(appt => {
-                  const cfg = statusConfig[appt.status] || statusConfig.CONFIRMED;
+                {/* Aucune réservation du tout */}
+                {activeAppointments.length === 0 && completedAppointments.length === 0 && (
+                  <div className="card-dark text-center" style={{ padding: '36px 20px' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📅</div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Aucune réservation active.</p>
+                    <Link to="/booking" className="btn-gold" style={{ display: 'inline-block', padding: '12px 24px', marginTop: '16px' }}>
+                      <span>📅 Prendre un nouveau rendez-vous</span>
+                    </Link>
+                  </div>
+                )}
 
-                  return (
-                    <div
-                      key={appt.id}
-                      className="card-dark animate-fadeIn"
-                      style={{
-                        marginBottom: '16px',
-                        padding: '20px',
-                        borderLeft: `5px solid ${cfg.color}`,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      {/* Statut Badge */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: 8 }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          N° RDV : <strong>{appt.id}</strong>
-                        </span>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            background: cfg.bg,
-                            border: `1px solid ${cfg.border}`,
-                            color: cfg.color,
-                            padding: '4px 12px',
-                            borderRadius: '100px',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                          }}
-                        >
-                          {cfg.label}
-                        </span>
-                      </div>
-
-                      {/* Détails */}
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                        ✂️ {appt.serviceName}
-                      </h3>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                        <div style={{ background: 'var(--bg-surface)', padding: '10px 12px', borderRadius: '8px' }}>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Date</span>
-                          <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>📅 {formatDateFR(appt.date)}</strong>
-                        </div>
-                        <div style={{ background: 'var(--bg-surface)', padding: '10px 12px', borderRadius: '8px' }}>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Horaire</span>
-                          <strong style={{ fontSize: '0.9rem', color: 'var(--red)' }}>⏰ {appt.startTime} {appt.endTime ? `– ${appt.endTime}` : ''}</strong>
-                        </div>
-                      </div>
-
-                      {/* Message explicatif */}
-                      <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: cfg.color, marginBottom: '16px' }}>
-                        {cfg.msg}
-                      </div>
-
-                      {/* Actions Client */}
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <a
-                          href={getPhoneLink('21376917')}
-                          className="btn-ghost"
-                          style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1, textAlign: 'center' }}
-                        >
-                          📞 Appeler le salon
-                        </a>
-                        <a
-                          href={getWhatsAppLink(`Bonjour Mohamed, je vous contacte concernant mon rendez-vous N° ${appt.id} du ${appt.date} à ${appt.startTime}.`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-ghost"
-                          style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1, textAlign: 'center', color: '#16A34A', borderColor: '#BBF7D0' }}
-                        >
-                          💬 WhatsApp
-                        </a>
-                      </div>
+                {/* ── Historique — Terminés ── */}
+                {completedAppointments.length > 0 && (
+                  <div style={{ marginTop: activeAppointments.length > 0 ? '32px' : '0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                      <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                        ✂️ Historique — Terminés ({completedAppointments.length})
+                      </h2>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                     </div>
-                  );
-                })}
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '14px' }}>
+                      Ces prestations ont déjà été effectuées. Merci de votre visite !
+                    </p>
+                    {completedAppointments.map(appt => (
+                      <AppointmentCard key={appt.id} appt={appt} showCancel={false} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Footer retour */}
+        {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '32px' }}>
           <Link to="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
             ← Retour à l'accueil
@@ -260,5 +373,15 @@ export default function Suivi() {
 
       </div>
     </main>
+
+    {/* Modal de confirmation d'annulation avec bouton WhatsApp */}
+    {cancelledAppt && (
+      <CancelConfirmModal
+        appt={cancelledAppt}
+        onClose={() => setCancelledAppt(null)}
+        context="client"
+      />
+    )}
+    </>
   );
 }

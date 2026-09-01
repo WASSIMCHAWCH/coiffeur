@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import ContactButtons from './ContactButtons';
 import mohamedImg from '../assets/mohamed.jpg';
+import { useShopStatus } from '../context/ShopStatusContext.jsx';
 
 export default function Hero({ shop }) {
+  const { isOpen } = useShopStatus();
+
   return (
     <section className="hero">
       <div className="hero-bg" />
@@ -50,10 +53,46 @@ export default function Hero({ shop }) {
           </div>
         </div>
 
-        {/* Badge */}
+        {/* Badge professionnel */}
         <div>
           <div className="hero-badge">
             ✂️ Coiffeur &amp; Barber Professionnel
+          </div>
+        </div>
+
+        {/* Indicateur Statut Salon */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '7px 18px',
+            borderRadius: '100px',
+            background: isOpen ? 'rgba(240, 253, 244, 0.15)' : 'rgba(254, 242, 242, 0.15)',
+            border: `1.5px solid ${isOpen ? 'rgba(187, 247, 208, 0.5)' : 'rgba(252, 165, 165, 0.5)'}`,
+            backdropFilter: 'blur(8px)',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            color: isOpen ? '#86EFAC' : '#FCA5A5',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            transition: 'all 0.4s ease',
+          }}>
+            {/* Point de statut */}
+            <span style={{
+              width: '9px',
+              height: '9px',
+              borderRadius: '50%',
+              background: isOpen ? '#4ADE80' : '#F87171',
+              boxShadow: isOpen
+                ? '0 0 0 0 rgba(74, 222, 128, 0.7)'
+                : '0 0 0 0 rgba(248, 113, 113, 0)',
+              animation: isOpen ? 'pulse-dot 2s infinite' : 'none',
+              flexShrink: 0,
+            }} />
+            {isOpen
+              ? 'Salon ouvert — Réservez maintenant'
+              : 'Salon fermé pour le moment'}
           </div>
         </div>
 

@@ -82,4 +82,19 @@ export function formatICSDate(dateStr, timeStr) {
   return `${y}${mo}${d}T${h}${mi}00`;
 }
 
+// Vérifie si une heure (HH:mm) est déjà passée pour une date donnée (YYYY-MM-DD)
+export function isTimePast(timeStr, dateStr = null) {
+  if (!timeStr) return false;
+  const todayISO = formatDateISO(new Date());
+  const targetDate = dateStr || todayISO;
+
+  if (targetDate < todayISO) return true;
+  if (targetDate > todayISO) return false;
+
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return (h * 60 + m) <= nowMinutes;
+}
+
 export { startOfDay };

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getAppointments, cancelAppointment, updateAppointmentStatus, createAppointment, getServices } from '../services/api';
-import { formatDateISO, formatDateFR, getDateLabel, getDayIndex } from '../utils/date';
+import { formatDateISO, formatDateFR, getDateLabel, getDayIndex, isTimePast } from '../utils/date';
 import { getPhoneLink, getWhatsAppLink } from '../utils/whatsapp';
 import mohamedImg from '../assets/mohamed.jpg';
+import { useShopStatus } from '../context/ShopStatusContext.jsx';
+import CancelConfirmModal from '../components/CancelConfirmModal.jsx';
 
 function addDays(date, n) {
   const d = new Date(date);
@@ -35,6 +37,17 @@ export default function Admin() {
   const [newPinInput, setNewPinInput] = useState('');
   const [pinChangedMsg, setPinChangedMsg] = useState('');
 
+  // ── Statut du salon ──
+  const { isOpen: shopOpen, toggle: toggleShopStatus } = useShopStatus();
+  const [statusFeedback, setStatusFeedback] = useState('');
+
+  const handleToggleStatus = () => {
+    toggleShopStatus();
+    const nextState = !shopOpen;
+    setStatusFeedback(nextState ? '✅ Salon marqué comme OUVERT' : '🔴 Salon marqué comme FERMÉ');
+    setTimeout(() => setStatusFeedback(''), 3000);
+  };
+
   const [selectedDate, setSelectedDate] = useState(formatDateISO(new Date()));
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
@@ -44,6 +57,11 @@ export default function Admin() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [quickSlot, setQuickSlot] = useState('');
   const [newClient, setNewClient] = useState({ name: '', phone: '', serviceId: 'S001' });
+
+  const [showAdvanced, setShowAdvanced] = useState(false); // Menu Plus d'options
+
+  // Modal de confirmation d'annulation avec WhatsApp
+  const [cancelledAppt, setCancelledAppt] = useState(null);
 
   const today = new Date();
   const dayIndex = getDayIndex(selectedDate); // 0=Lun .. 4=Ven .. 6=Dim
@@ -141,6 +159,10 @@ export default function Admin() {
   // Changer le statut (Terminé / Confirmé / Annulé)
   const handleStatusChange = async (id, newStatus) => {
     if (newStatus === 'CANCELLED' && !confirm('Annuler ce rendez-vous ?')) return;
+
+    // Capturer l'objet avant modification pour le modal WhatsApp
+    const targetAppt = appointments.find(a => a.id === id);
+
     setUpdatingId(id);
     try {
       if (newStatus === 'CANCELLED') {
@@ -154,6 +176,10 @@ export default function Admin() {
       setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     } finally {
       setUpdatingId(null);
+      // Afficher le modal de confirmation si annulation
+      if (newStatus === 'CANCELLED' && targetAppt) {
+        setCancelledAppt({ ...targetAppt, date: selectedDate });
+      }
     }
   };
 
@@ -188,7 +214,6 @@ export default function Admin() {
   };
 
   const displaySlots = generateDisplaySlots();
-  const apptByTime   = Object.fromEntries(appointments.map(a => [a.startTime, a]));
 
   const statusColor = {
     PENDING:   'status-pending',
@@ -204,13 +229,34 @@ export default function Admin() {
     COMPLETED: 'Terminé ✂️',
   };
 
-  // Filtrage
-  const filteredAppointments = appointments.filter(a => {
-    if (filter === 'PENDING') return a.status === 'PENDING';
+  // Traitement dynamique selon l'heure actuelle :
+  // Si la date est aujourd'hui (ou passée) et que l'heure du créneau est dépassée :
+  // - Les RDV CONFIRMÉS passent automatiquement dans "Terminés"
+  // - Les RDV EN ATTENTE non traités passent en "Expirés" (dans Refusés)
+  const processedAppointments = appointments.map(appt => {
+    const timeToCheck = appt.endTime || appt.startTime;
+    const isPast = isTimePast(timeToCheck, selectedDate);
+    if (isPast) {
+      if (appt.status === 'CONFIRMED') {
+        return { ...appt, status: 'COMPLETED', isAutoCompleted: true };
+      }
+      if (appt.status === 'PENDING') {
+        return { ...appt, status: 'CANCELLED', isExpired: true };
+      }
+    }
+    return appt;
+  });
+
+  const apptByTime = Object.fromEntries(processedAppointments.map(a => [a.startTime, a]));
+
+  // Filtrage — les COMPLETED n'apparaissent QUE dans l'onglet COMPLETED
+  const filteredAppointments = processedAppointments.filter(a => {
+    if (filter === 'PENDING')   return a.status === 'PENDING';
     if (filter === 'CONFIRMED') return a.status === 'CONFIRMED';
     if (filter === 'COMPLETED') return a.status === 'COMPLETED';
     if (filter === 'CANCELLED') return a.status === 'CANCELLED';
-    return true;
+    // "ALL" : tous les rendez-vous actifs (les terminés ont leur propre onglet)
+    return a.status !== 'COMPLETED';
   });
 
   const getReminderMessage = (appt) => {
@@ -330,6 +376,7 @@ export default function Admin() {
 
   // ── Tableau de bord Administrateur Connecté ──
   return (
+    <>
     <main style={{ minHeight: '100vh', padding: '32px 16px', background: 'var(--bg-surface)' }}>
       <div className="container-custom" style={{ maxWidth: '800px' }}>
 
@@ -362,25 +409,106 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Boutons Sécurité & Déconnexion */}
+            {/* Bouton Toggle Plus d'options */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
-                onClick={() => setShowChangePin(true)}
+                onClick={() => setShowAdvanced(!showAdvanced)}
                 className="btn-ghost"
-                style={{ padding: '8px 12px', fontSize: '0.75rem' }}
-                title="Modifier le code PIN"
+                style={{ padding: '8px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                🔑 Code PIN
-              </button>
-              <button
-                onClick={handleLogout}
-                className="btn-danger"
-                style={{ padding: '8px 12px', fontSize: '0.75rem' }}
-                title="Se déconnecter de l'espace admin"
-              >
-                🔒 Déconnexion
+                {showAdvanced ? '▲ Réduire' : '▼ Plus d\'options'}
               </button>
             </div>
+          </div>
+
+          {/* ── Panneau Statut du Salon ── */}
+          <div style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Statut du salon
+              </span>
+              {/* Indicateur détail */}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                borderRadius: '100px',
+                background: shopOpen ? '#F0FDF4' : '#FEF2F2',
+                border: `1px solid ${shopOpen ? '#BBF7D0' : '#FCA5A5'}`,
+                color: shopOpen ? '#16A34A' : '#DC2626',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                transition: 'all 0.3s ease',
+              }}>
+                <span style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: shopOpen ? '#16A34A' : '#DC2626',
+                  animation: shopOpen ? 'pulse-dot 2s infinite' : 'none',
+                }} />
+                {shopOpen ? 'Ouvert' : 'Fermé'}
+              </span>
+              {/* Feedback transition */}
+              {statusFeedback && (
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                  {statusFeedback}
+                </span>
+              )}
+            </div>
+
+            {/* Bouton Toggle */}
+            <button
+              onClick={handleToggleStatus}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 20px',
+                borderRadius: 'var(--radius-md)',
+                border: `2px solid ${shopOpen ? '#FCA5A5' : '#BBF7D0'}`,
+                background: shopOpen ? '#FEF2F2' : '#F0FDF4',
+                color: shopOpen ? '#DC2626' : '#16A34A',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                letterSpacing: '0.03em',
+              }}
+              title={shopOpen ? 'Cliquer pour fermer le salon' : 'Cliquer pour ouvrir le salon'}
+            >
+              {/* Toggle visuel */}
+              <div style={{
+                width: '40px',
+                height: '22px',
+                borderRadius: '11px',
+                background: shopOpen ? '#16A34A' : '#D1D5DB',
+                position: 'relative',
+                transition: 'background 0.3s ease',
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: shopOpen ? '21px' : '3px',
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  background: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  transition: 'left 0.3s ease',
+                }} />
+              </div>
+              {shopOpen ? '🔴 Fermer le salon' : '🟢 Ouvrir le salon'}
+            </button>
           </div>
 
           {/* Sélecteur de date */}
@@ -432,44 +560,67 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Statistiques clés */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '24px' }}>
-          {[
-            { label: 'Total RDV',   value: appointments.length,                                        color: 'var(--text-primary)', bg: '#FFFFFF' },
-            { label: 'En attente',  value: appointments.filter(a => a.status === 'PENDING').length,   color: '#D97706',              bg: '#FFFBEB' },
-            { label: 'Confirmés',   value: appointments.filter(a => a.status === 'CONFIRMED').length, color: 'var(--success)',       bg: '#F0FDF4' },
-            { label: 'Terminés',    value: appointments.filter(a => a.status === 'COMPLETED').length, color: 'var(--blue)',          bg: '#EFF6FF' },
-            { label: 'Refusés',     value: appointments.filter(a => a.status === 'CANCELLED').length, color: 'var(--danger)',        bg: '#FEF2F2' },
-          ].map(stat => (
-            <div key={stat.label} className="card-dark" style={{ textAlign: 'center', padding: '12px 8px', background: stat.bg }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                {stat.label}
-              </div>
+        {/* ── Options Avancées (PIN, Logout, Stats, Filtres) ── */}
+        {showAdvanced && (
+          <div className="card-dark animate-scaleIn" style={{ padding: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowChangePin(true)}
+                className="btn-ghost"
+                style={{ padding: '8px 16px', fontSize: '0.75rem', borderRadius: '100px', flex: '1 1 auto', justifyContent: 'center' }}
+              >
+                🔑 Code PIN
+              </button>
+              <button
+                onClick={handleLogout}
+                className="btn-danger"
+                style={{ padding: '8px 16px', fontSize: '0.75rem', borderRadius: '100px', flex: '1 1 auto', justifyContent: 'center' }}
+              >
+                🔒 Déconnexion
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Onglets de filtrage */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          {[
-            { key: 'ALL',       label: `Tous (${appointments.length})` },
-            { key: 'PENDING',   label: `⏳ En attente (${appointments.filter(a => a.status === 'PENDING').length})` },
-            { key: 'CONFIRMED', label: `✅ Confirmés (${appointments.filter(a => a.status === 'CONFIRMED').length})` },
-            { key: 'COMPLETED', label: `✂️ Terminés (${appointments.filter(a => a.status === 'COMPLETED').length})` },
-            { key: 'CANCELLED', label: `❌ Refusés (${appointments.filter(a => a.status === 'CANCELLED').length})` },
-            { key: 'TIMELINE',  label: '⏱ Vue Grille' },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
-              className={filter === tab.key ? 'btn-gold' : 'btn-ghost'}
-              style={{ padding: '8px 14px', fontSize: '0.75rem', borderRadius: '100px' }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+            {/* Statistiques clés */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+              {[
+                { label: 'Total RDV',   value: processedAppointments.length,                                        color: 'var(--text-primary)', bg: '#FFFFFF' },
+                { label: 'En attente',  value: processedAppointments.filter(a => a.status === 'PENDING').length,   color: '#D97706',              bg: '#FFFBEB' },
+                { label: 'Confirmés',   value: processedAppointments.filter(a => a.status === 'CONFIRMED').length, color: 'var(--success)',       bg: '#F0FDF4' },
+                { label: 'Terminés',    value: processedAppointments.filter(a => a.status === 'COMPLETED').length, color: 'var(--blue)',          bg: '#EFF6FF' },
+                { label: 'Refusés',     value: processedAppointments.filter(a => a.status === 'CANCELLED').length, color: 'var(--danger)',        bg: '#FEF2F2' },
+              ].map(stat => (
+                <div key={stat.label} style={{ textAlign: 'center', padding: '12px 8px', background: stat.bg, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Onglets de filtrage */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'ALL',       label: `Tous (${processedAppointments.filter(a => a.status !== 'COMPLETED').length})` },
+                { key: 'PENDING',   label: `⏳ En attente (${processedAppointments.filter(a => a.status === 'PENDING').length})` },
+                { key: 'CONFIRMED', label: `✅ Confirmés (${processedAppointments.filter(a => a.status === 'CONFIRMED').length})` },
+                { key: 'COMPLETED', label: `✂️ Terminés (${processedAppointments.filter(a => a.status === 'COMPLETED').length})` },
+                { key: 'CANCELLED', label: `❌ Refusés (${processedAppointments.filter(a => a.status === 'CANCELLED').length})` },
+                { key: 'TIMELINE',  label: '⏱ Vue Grille' },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={filter === tab.key ? 'btn-gold' : 'btn-ghost'}
+                  style={{ padding: '8px 14px', fontSize: '0.75rem', borderRadius: '100px', flex: '1 1 auto', justifyContent: 'center' }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         {/* Vue Liste ou Grille Timeline */}
         {loading ? (
@@ -542,8 +693,8 @@ export default function Admin() {
                             – {appt.endTime}
                           </span>
                         )}
-                        <span className={`status-badge ${statusColor[appt.status] || 'status-pending'}`} style={{ marginLeft: '6px' }}>
-                          {statusLabel[appt.status] || appt.status}
+                        <span className={`status-badge ${appt.isExpired ? 'status-cancelled' : (statusColor[appt.status] || 'status-pending')}`} style={{ marginLeft: '6px' }}>
+                          {appt.isExpired ? 'Expiré ⏱️' : (statusLabel[appt.status] || appt.status)}
                         </span>
                       </div>
 
@@ -559,7 +710,7 @@ export default function Admin() {
 
                     {/* Actions Rapides Barber */}
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      {/* Valider / Confirmer pour En Attente */}
+                      {/* ── Valider pour En Attente ── */}
                       {appt.status === 'PENDING' && (
                         <button
                           onClick={() => handleStatusChange(appt.id, 'CONFIRMED')}
@@ -568,18 +719,6 @@ export default function Admin() {
                           style={{ padding: '8px 14px', fontSize: '0.75rem' }}
                         >
                           <span>✓ Confirmer</span>
-                        </button>
-                      )}
-
-                      {/* Refuser pour En Attente */}
-                      {appt.status === 'PENDING' && (
-                        <button
-                          onClick={() => handleStatusChange(appt.id, 'CANCELLED')}
-                          disabled={updatingId === appt.id}
-                          className="btn-danger"
-                          style={{ padding: '8px 12px', fontSize: '0.75rem' }}
-                        >
-                          ✕ Refuser
                         </button>
                       )}
 
@@ -605,7 +744,7 @@ export default function Admin() {
                         💬 WhatsApp
                       </a>
 
-                      {/* Marquer Terminé */}
+                      {/* Marquer Terminé — uniquement si CONFIRMED */}
                       {appt.status === 'CONFIRMED' && (
                         <button
                           onClick={() => handleStatusChange(appt.id, 'COMPLETED')}
@@ -617,15 +756,15 @@ export default function Admin() {
                         </button>
                       )}
 
-                      {/* Annuler */}
-                      {appt.status === 'CONFIRMED' && (
+                      {/* Annuler / Refuser — disponible sur PENDING, CONFIRMED et CANCELLED */}
+                      {(appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
                         <button
                           onClick={() => handleStatusChange(appt.id, 'CANCELLED')}
                           disabled={updatingId === appt.id}
                           className="btn-danger"
                           style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                         >
-                          ✕ Annuler
+                          {appt.status === 'PENDING' ? '✕ Refuser' : '✕ Annuler'}
                         </button>
                       )}
 
@@ -638,6 +777,19 @@ export default function Admin() {
                           style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#16A34A', borderColor: '#BBF7D0' }}
                         >
                           ↺ Rétablir
+                        </button>
+                      )}
+
+                      {/* Annuler aussi pour CANCELLED (si jamais on veut définitivement supprimer) */}
+                      {appt.status === 'CANCELLED' && (
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'CANCELLED')}
+                          disabled={true}
+                          className="btn-ghost"
+                          style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-muted)', borderColor: 'var(--border-subtle)', cursor: 'default', opacity: 0.5 }}
+                          title="Déjà annulé"
+                        >
+                          ✕ Annulé
                         </button>
                       )}
                     </div>
@@ -796,5 +948,15 @@ export default function Admin() {
 
       </div>
     </main>
+
+    {/* Modal de confirmation d'annulation avec bouton WhatsApp */}
+    {cancelledAppt && (
+      <CancelConfirmModal
+        appt={cancelledAppt}
+        onClose={() => setCancelledAppt(null)}
+        context="admin"
+      />
+    )}
+    </>
   );
 }

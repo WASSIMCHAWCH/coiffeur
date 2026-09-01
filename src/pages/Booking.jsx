@@ -6,6 +6,7 @@ import TimeSlot from '../components/TimeSlot';
 import { getServices, getAvailability, getSchedule, createAppointment } from '../services/api';
 import { formatDateFR, calcEndTime } from '../utils/date';
 import { validateBookingForm, hasErrors } from '../utils/validation';
+import { useShopStatus } from '../context/ShopStatusContext.jsx';
 
 // Stepper
 function Stepper({ current }) {
@@ -180,8 +181,24 @@ export default function Booking() {
     }
   };
 
-  const allSlots     = slots?.allSlots     || slots?.all || [];
-  const availSlots   = slots?.availableSlots || slots?.available || [];
+  const allSlots   = slots?.allSlots     || slots?.all || [];
+  const availSlots = slots?.availableSlots || slots?.available || [];
+
+  // Heure actuelle (format "HH:MM") pour filtrer les créneaux passés quand c'est aujourd'hui
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+  const isSlotPast = (timeStr) => {
+    if (selectedDate !== todayISO) return false; // pas aujourd'hui → rien à filtrer
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60 + m) <= nowMinutes; // créneau inférieur ou égal à l'heure actuelle
+  };
+
+  // Créneaux réellement disponibles (= disponibles selon l'API ET pas dans le passé)
+  const effectiveAvailSlots = availSlots.filter(t => !isSlotPast(t));
+
+  // Statut du salon (purement informatif — la réservation reste possible)
+  const { isOpen: shopOpen } = useShopStatus();
 
   return (
     <main style={{ minHeight: '100vh', padding: '40px 20px' }}>
@@ -192,6 +209,32 @@ export default function Booking() {
           <h1 className="section-title">Prendre Rendez-vous</h1>
           <div className="gold-divider" />
         </div>
+
+        {/* Bannière informative statut salon */}
+        {!shopOpen && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderLeft: '4px solid #D97706',
+            borderRadius: 'var(--radius-md)',
+            padding: '14px 18px',
+            marginBottom: '24px',
+          }}>
+            <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>🔔</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#92400E', marginBottom: '3px' }}>
+                Le salon est actuellement fermé
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#B45309', lineHeight: 1.5 }}>
+                Vous pouvez tout de même déposer votre demande de réservation.
+                Mohamed Hechi la traitera dès la réouverture du salon.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stepper */}
         <Stepper current={step} />
@@ -255,17 +298,17 @@ export default function Booking() {
               </div>
             ) : (
               <>
-                {(allSlots.length > 0 ? allSlots : availSlots).length === 0 ? (
+                {(allSlots.length > 0 ? allSlots : effectiveAvailSlots).length === 0 ? (
                   <div className="alert-gold">
                     😔 Aucun créneau disponible ce jour. Essayez une autre date.
                   </div>
                 ) : (
                   <div className="slots-grid">
-                    {(allSlots.length > 0 ? allSlots : availSlots).map(time => (
+                    {(allSlots.length > 0 ? allSlots : effectiveAvailSlots).map(time => (
                       <TimeSlot
                         key={time}
                         time={time}
-                        available={availSlots.includes(time)}
+                        available={effectiveAvailSlots.includes(time)}
                         selected={selectedTime === time}
                         onClick={() => handleSelectTime(time)}
                       />

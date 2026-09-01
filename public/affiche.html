@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiche Salon GAR3A</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold:      #c9a84c;
+      --gold-light:#e8d08a;
+      --gold-dark: #9e7a2e;
+      --blue:      #1d3557;
+      --red:       #c1121f;
+      --bg:        #fdfcf8;
+      --text:      #1a1a1a;
+      --stripe-w:  20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #2a2a2a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* ─── OUTER WRAPPER = the barber-stripe frame ─── */
+    .frame {
+      --bs: repeating-linear-gradient(
+        45deg,
+        var(--red)      0,
+        var(--red)      var(--stripe-w),
+        #ffffff         var(--stripe-w),
+        #ffffff         calc(var(--stripe-w)*2),
+        var(--blue)     calc(var(--stripe-w)*2),
+        var(--blue)     calc(var(--stripe-w)*3),
+        #ffffff         calc(var(--stripe-w)*3),
+        #ffffff         calc(var(--stripe-w)*4)
+      );
+      padding: 16px;
+      background: var(--bs);
+      /* Force background printing */
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      box-shadow:
+        0 0 0 3px var(--gold),
+        0 20px 50px rgba(0,0,0,0.6);
+      border-radius: 4px;
+    }
+
+    /* ─── INNER POSTER ─── */
+    .poster {
+      width: 210mm;
+      background: var(--bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 32px 40px;
+      /* Thin gold inner margin line */
+      outline: 1.5px solid var(--gold);
+      outline-offset: -10px;
+    }
+
+    /* ═══ LUXURY CORNER ORNAMENTS (SVG inline via CSS) ═══ */
+    .poster::before,
+    .poster::after {
+      content: '❧';
+      font-size: 28px;
+      color: var(--gold);
+      position: absolute;
+      opacity: 0.55;
+    }
+    .poster::before { top: 18px; left: 18px; transform: rotate(0deg); }
+    .poster::after  { top: 18px; right: 18px; transform: scaleX(-1); }
+
+    .corner-bl, .corner-br {
+      position: absolute;
+      font-size: 28px;
+      color: var(--gold);
+      opacity: 0.55;
+    }
+    .corner-bl { bottom: 18px; left: 18px; transform: scale(1,-1); }
+    .corner-br { bottom: 18px; right: 18px; transform: scale(-1,-1); }
+
+    /* ═══ GOLD ORNAMENTAL DIVIDERS ═══ */
+    .divider {
+      width: 80%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold), transparent);
+    }
+    .divider-diamond {
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+    .divider-diamond-sm {
+      width: 5px;
+      height: 5px;
+      background: var(--gold-light);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+
+    /* ═══ LOGO ═══ */
+    .logo-area { text-align: center; margin-top: 14px; }
+
+    .logo-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 88px;
+      font-weight: 700;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      line-height: 1;
+      /* Gold gradient text */
+      background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-light) 50%, var(--gold-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.08));
+    }
+
+    .logo-tagline {
+      font-size: 13px;
+      letter-spacing: 7px;
+      color: #888;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* ═══ PHOTO ═══ */
+    .photo-wrap {
+      position: relative;
+      margin: 8px 0 4px;
+    }
+
+    /* Triple ring frame */
+    .photo-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -18px;
+      border-radius: 50%;
+      border: 1px solid var(--gold);
+      opacity: 0.25;
+    }
+    .photo-wrap::after {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 2px dotted var(--gold);
+      opacity: 0.4;
+    }
+
+    .photo-ring {
+      width: 290px;
+      height: 290px;
+      border-radius: 50%;
+      border: 7px solid var(--gold);
+      padding: 8px;
+      background: white;
+      box-shadow:
+        0 0 0 2px var(--gold-light),
+        0 12px 35px rgba(0,0,0,0.15);
+    }
+
+    .photo {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: top center;
+    }
+
+    /* Luxury star badges on photo frame */
+    .star-badge {
+      position: absolute;
+      font-size: 22px;
+      color: var(--gold);
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
+    }
+    .star-badge.tl { top: 2px; left: 12px; }
+    .star-badge.tr { top: 2px; right: 12px; }
+    .star-badge.bl { bottom: 2px; left: 12px; }
+    .star-badge.br { bottom: 2px; right: 12px; }
+
+    /* ═══ NAME ═══ */
+    .barber-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+    .barber-title {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: #888;
+      text-transform: uppercase;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    /* ═══ QR CODE ═══ */
+    .qr-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .qr-wrapper {
+      position: relative;
+      padding: 4px;
+    }
+    /* Gold gradient border around QR */
+    .qr-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light), var(--gold-dark));
+      z-index: 0;
+    }
+    .qr-inner {
+      position: relative;
+      z-index: 1;
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      width: 160px;
+      height: 160px;
+    }
+    .qr-inner img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Small scissors ornament */
+    .scissor-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+      color: var(--gold);
+      font-size: 16px;
+      letter-spacing: 6px;
+      opacity: 0.7;
+    }
+
+    .cta-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gold-dark);
+      letter-spacing: 1px;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .location {
+      font-size: 14px;
+      color: #777;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-top: 6px;
+    }
+
+    /* ═══ PRINT BUTTON ═══ */
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+    }
+    .print-btn {
+      padding: 12px 26px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+      letter-spacing: 1px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .print-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    /* ═══ PRINT ═══ */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+      .controls { display: none !important; }
+
+      /* Force ALL background colors & images to print */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
+      .frame {
+        padding: 14px;
+        box-shadow: 0 0 0 3px var(--gold);
+        /* Ensure gradient border prints */
+        background: repeating-linear-gradient(
+          45deg,
+          var(--red)      0,
+          var(--red)      var(--stripe-w),
+          #ffffff         var(--stripe-w),
+          #ffffff         calc(var(--stripe-w)*2),
+          var(--blue)     calc(var(--stripe-w)*2),
+          var(--blue)     calc(var(--stripe-w)*3),
+          #ffffff         calc(var(--stripe-w)*3),
+          #ffffff         calc(var(--stripe-w)*4)
+        ) !important;
+      }
+      .poster {
+        width: 100%;
+        outline-offset: -8px;
+      }
+      @page { size: A4; margin: 6mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="controls">
+    <button class="print-btn" onclick="window.print()">🖨️ Imprimer l'affiche</button>
+  </div>
+
+  <!-- Barber stripe = the frame -->
+  <div class="frame">
+    <div class="poster" id="poster">
+
+      <!-- Corner ornaments -->
+      <span class="corner-bl">❧</span>
+      <span class="corner-br">❧</span>
+
+      <!-- LOGO -->
+      <div class="logo-area">
+        <div class="logo-text">GAR3A</div>
+        <div class="logo-tagline">Premium Barbershop &nbsp;✦&nbsp; Hammam Zriba</div>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-diamond-sm"></div>
+        <div class="divider-diamond"></div>
+        <div class="divider-diamond-sm"></div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- PHOTO -->
+      <div class="photo-wrap">
+        <div class="photo-ring">
+          <img src="./mohamed.jpg" alt="Mohamed Hechi" class="photo">
+        </div>
+        <span class="star-badge tl">✦</span>
+        <span class="star-badge tr">✦</span>
+        <span class="star-badge bl">✦</span>
+        <span class="star-badge br">✦</span>
+      </div>
+
+      <!-- Name -->
+      <div class="barber-name">Mohamed Hechi</div>
+      <div class="barber-title">Coiffeur &amp; Barber Professionnel</div>
+
+      <!-- Divider -->
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-diamond-sm"></div>
+        <div class="divider-diamond"></div>
+        <div class="divider-diamond-sm"></div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- QR CODE -->
+      <div class="qr-section">
+        <div class="qr-wrapper">
+          <div class="qr-inner">
+            <img src="./qr_code.png" alt="QR Code">
+          </div>
+        </div>
+        <div class="scissor-row">✂ ✦ ✦ ✦ ✂</div>
+        <div class="cta-text">Scannez pour réserver en ligne</div>
+        <div class="location">📍 Hammam Zriba, Zaghouan, Tunisie</div>
+      </div>
+
+    </div><!-- /poster -->
+  </div><!-- /frame -->
+
+</body>
+</html>
