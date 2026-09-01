@@ -20,6 +20,26 @@ export default function Suivi() {
   const [cancelSuccess, setCancelSuccess] = useState('');
   const [cancelledAppt, setCancelledAppt] = useState(null); // Pour le modal WhatsApp
 
+  // Liste des rendez-vous masqués/supprimés localement par le client
+  const [hiddenIds, setHiddenIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gar3a_client_hidden_appts') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const hideAppointment = (apptId) => {
+    if (!window.confirm('Voulez-vous supprimer ce rendez-vous de votre affichage ?')) return;
+    const newHidden = [...hiddenIds, String(apptId)];
+    setHiddenIds(newHidden);
+    try {
+      localStorage.setItem('gar3a_client_hidden_appts', JSON.stringify(newHidden));
+    } catch {
+      // ignore
+    }
+  };
+
   const search = async (phoneToSearch, idToSearch) => {
     const qPhone = (phoneToSearch !== undefined ? phoneToSearch : phone).trim();
     const qId    = idToSearch || initialId;
@@ -122,9 +142,13 @@ export default function Suivi() {
     return appt;
   });
 
-  // Séparer actifs et terminés
-  const activeAppointments    = processedAppointments.filter(a => a.status !== 'COMPLETED');
-  const completedAppointments = processedAppointments.filter(a => a.status === 'COMPLETED');
+  // Filtrer les rendez-vous que le client a retirés de son affichage
+  const visibleAppointments = processedAppointments.filter(a => !hiddenIds.includes(String(a.id)));
+
+  // Rendez-vous actifs en cours (En attente ou Confirmé)
+  const activeAppointments  = visibleAppointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED');
+  // Historique (Terminés, Annulés ou Refusés)
+  const historyAppointments = visibleAppointments.filter(a => a.status === 'COMPLETED' || a.status === 'CANCELLED');
 
   // Carte rendez-vous réutilisable
   function AppointmentCard({ appt, showCancel }) {
@@ -203,8 +227,8 @@ export default function Suivi() {
             💬 WhatsApp
           </a>
 
-          {/* Bouton Annuler / Supprimer — pour PENDING et CONFIRMED */}
-          {showCancel && (appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
+          {/* Bouton Annuler — pour PENDING et CONFIRMED */}
+          {(appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
             <button
               onClick={() => handleCancel(appt.id)}
               disabled={cancellingId === appt.id}
@@ -212,6 +236,18 @@ export default function Suivi() {
               style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1 }}
             >
               {cancellingId === appt.id ? '⏳ Annulation...' : '✕ Annuler ce rendez-vous'}
+            </button>
+          )}
+
+          {/* Bouton Supprimer de la liste — pour CANCELLED et COMPLETED */}
+          {(appt.status === 'CANCELLED' || appt.status === 'COMPLETED') && (
+            <button
+              onClick={() => hideAppointment(appt.id)}
+              className="btn-ghost"
+              style={{ padding: '8px 14px', fontSize: '0.75rem', flex: 1, color: 'var(--text-muted)', borderColor: 'var(--border)' }}
+              title="Supprimer ce rendez-vous de votre écran"
+            >
+              🗑️ Supprimer de ma liste
             </button>
           )}
         </div>
@@ -320,7 +356,7 @@ export default function Suivi() {
                 {activeAppointments.length > 0 && (
                   <div>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Vos réservations ({activeAppointments.length})
+                      📅 Rendez-vous en cours ({activeAppointments.length})
                     </h2>
                     {activeAppointments.map(appt => (
                       <AppointmentCard key={appt.id} appt={appt} showCancel={true} />
@@ -329,7 +365,7 @@ export default function Suivi() {
                 )}
 
                 {/* Aucune réservation du tout */}
-                {activeAppointments.length === 0 && completedAppointments.length === 0 && (
+                {activeAppointments.length === 0 && historyAppointments.length === 0 && (
                   <div className="card-dark text-center" style={{ padding: '36px 20px' }}>
                     <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📅</div>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Aucune réservation active.</p>
@@ -339,19 +375,16 @@ export default function Suivi() {
                   </div>
                 )}
 
-                {/* ── Historique — Terminés ── */}
-                {completedAppointments.length > 0 && (
+                {/* ── Historique — Annulés / Refusés & Terminés ── */}
+                {historyAppointments.length > 0 && (
                   <div style={{ marginTop: activeAppointments.length > 0 ? '32px' : '0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                       <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                        ✂️ Historique — Terminés ({completedAppointments.length})
+                        📂 Historique ({historyAppointments.length})
                       </h2>
                       <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                     </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '14px' }}>
-                      Ces prestations ont déjà été effectuées. Merci de votre visite !
-                    </p>
-                    {completedAppointments.map(appt => (
+                    {historyAppointments.map(appt => (
                       <AppointmentCard key={appt.id} appt={appt} showCancel={false} />
                     ))}
                   </div>
