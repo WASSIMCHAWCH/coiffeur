@@ -163,23 +163,10 @@ export default function Navbar() {
                   Contact
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/booking"
-                  onClick={() => setOpen(false)}
-                >
-                  <button className="btn-gold" style={{ padding: '10px 20px', fontSize: '0.8rem' }}>
-                    <span>📅 Réserver</span>
-                  </button>
-                </Link>
-              </li>
             </ul>
 
-            {/* Mobile: CTA + hamburger */}
+            {/* Mobile: hamburger */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link to="/booking" className="btn-gold" style={{ padding: '10px 18px', fontSize: '0.8rem' }}>
-                <span>📅 Réserver</span>
-              </Link>
               <button
                 className="hamburger"
                 onClick={() => setOpen(!open)}
