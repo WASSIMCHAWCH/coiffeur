@@ -30,8 +30,10 @@ export function getCancellationMessageToClient({ clientName, serviceName, date, 
 📅 التاريخ : ${date}
 ⏰ الوقت : ${time}
 
-سامحنا على أي إزعاج. تنجم تعاود تاخو موعد جديد في أي وقت عبر الموقع متاعنا.
-مرحبا بيك — فريق Gar3a ✂️`;
+سامحنا على أي إزعاج. تنجم تعاود تاخو موعد جديد في أي وقت عبر الموقع متاعنا :
+🌐 https://coiffeur-umber.vercel.app/
+
+مرحبا بيك في كل وقت — فريق Gar3a ✂️`;
 }
 
 // Message de notification d'annulation envoyé AU SALON par le client (Arabe Tunisien)
