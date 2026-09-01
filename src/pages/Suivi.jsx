@@ -218,7 +218,7 @@ export default function Suivi() {
             📞 Appeler le salon
           </a>
           <a
-            href={getWhatsAppLink(`Bonjour Mohamed, je vous contacte concernant mon rendez-vous N° ${appt.id} du ${appt.date} à ${appt.startTime}.`)}
+            href={getWhatsAppLink(`عسلامة خويا محمد، حبيت نسألك على الموعد متاعي رقم ${appt.id} نهار ${appt.date} مع ${appt.startTime}.`)}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-ghost"

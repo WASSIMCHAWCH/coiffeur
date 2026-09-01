@@ -74,19 +74,19 @@ export function getCancellationMessageToSalon({ clientName, clientPhone, service
 
 // Message WhatsApp après confirmation de RDV
 export function getBookingConfirmationMessage({ clientName, service, date, time }) {
-  return `Bonjour Mohamed, je viens de réserver un rendez-vous chez Gar3a.
+  return `عسلامة خويا محمد، حبيت نأكد الحجز متاعي في Gar3a :
 
-👤 Nom : ${clientName}
-✂️ Service : ${service}
-📅 Date : ${date}
-⏰ Heure : ${time}
+👤 الإسم : ${clientName}
+✂️ الخدمة : ${service}
+📅 التاريخ : ${date}
+⏰ الوقت : ${time}
 
-Merci !`;
+شكراً وبارك الله فيك.`;
 }
 
 // Message WhatsApp générique de contact
 export function getContactMessage() {
-  return `Bonjour Mohamed, je souhaite prendre un rendez-vous chez Gar3a.`;
+  return `عسلامة خويا محمد، حبيت نسأل على موعد (رونديفو) في Gar3a.`;
 }
 
 // Lien téléphone
