@@ -20,33 +20,33 @@ export function getWhatsAppLinkTo(phone, message = '') {
   return `https://wa.me/${fullNumber}${encoded ? `?text=${encoded}` : ''}`;
 }
 
-// Message de notification d'annulation envoyé AU CLIENT par l'admin
+// Message de notification d'annulation envoyé AU CLIENT par l'admin (Arabe Tunisien)
 export function getCancellationMessageToClient({ clientName, serviceName, date, time }) {
-  return `Bonjour ${clientName},
+  return `عسلامة ${clientName}،
 
-Nous vous informons que votre rendez-vous chez *Mohamed Hechi (Gar3a)* a été *annulé* :
+نعلموك إلي الموعد متاعك عند *محمد الحيشي (Gar3a)* تم *إلغاؤه* :
 
-✂️ Service : ${serviceName}
-📅 Date : ${date}
-⏰ Heure : ${time}
+✂️ الخدمة : ${serviceName}
+📅 التاريخ : ${date}
+⏰ الوقت : ${time}
 
-Nous nous excusons pour ce désagrément. N'hésitez pas à reprendre rendez-vous via notre site.
-Cordialement — Équipe Gar3a ✂️`;
+سامحنا على أي إزعاج. تنجم تعاود تاخو موعد جديد في أي وقت عبر الموقع متاعنا.
+مرحبا بيك — فريق Gar3a ✂️`;
 }
 
-// Message de notification d'annulation envoyé AU SALON par le client
+// Message de notification d'annulation envoyé AU SALON par le client (Arabe Tunisien)
 export function getCancellationMessageToSalon({ clientName, clientPhone, serviceName, date, time }) {
-  return `Bonjour Mohamed,
+  return `عسلامة خويا محمد،
 
-Je souhaite vous informer que j'annule mon rendez-vous :
+حبيت نعلمك إلي نحب نلغي الموعد متاعي :
 
-👤 Nom : ${clientName}
-📞 Téléphone : ${clientPhone}
-✂️ Service : ${serviceName}
-📅 Date : ${date}
-⏰ Heure : ${time}
+👤 الإسم : ${clientName}
+📞 الهاتف : ${clientPhone}
+✂️ الخدمة : ${serviceName}
+📅 التاريخ : ${date}
+⏰ الوقت : ${time}
 
-Merci de prendre note.`;
+يعطيك الصحة وبارك الله فيك.`;
 }
 
 // Message WhatsApp après confirmation de RDV
