@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getAppointments, cancelAppointment, updateAppointmentStatus, createAppointment, getServices } from '../services/api';
 import { formatDateISO, formatDateFR, getDateLabel, getDayIndex, isTimePast } from '../utils/date';
-import { getPhoneLink, getWhatsAppLink } from '../utils/whatsapp';
+import { getPhoneLink, getWhatsAppLink, getWhatsAppLinkTo, getConfirmationMessageToClient } from '../utils/whatsapp';
 import mohamedImg from '../assets/mohamed.jpg';
 import { useShopStatus } from '../context/ShopStatusContext.jsx';
 import CancelConfirmModal from '../components/CancelConfirmModal.jsx';
+import ConfirmAppointmentModal from '../components/ConfirmAppointmentModal.jsx';
 
 function addDays(date, n) {
   const d = new Date(date);
@@ -62,6 +63,8 @@ export default function Admin() {
 
   // Modal de confirmation d'annulation avec WhatsApp
   const [cancelledAppt, setCancelledAppt] = useState(null);
+  // Modal de validation / confirmation de RDV avec WhatsApp
+  const [confirmedAppt, setConfirmedAppt] = useState(null);
 
   const today = new Date();
   const dayIndex = getDayIndex(selectedDate); // 0=Lun .. 4=Ven .. 6=Dim
@@ -176,9 +179,11 @@ export default function Admin() {
       setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     } finally {
       setUpdatingId(null);
-      // Afficher le modal de confirmation si annulation
+      // Afficher le modal selon l'action (Annulation ou Confirmation)
       if (newStatus === 'CANCELLED' && targetAppt) {
         setCancelledAppt({ ...targetAppt, date: selectedDate });
+      } else if (newStatus === 'CONFIRMED' && targetAppt) {
+        setConfirmedAppt({ ...targetAppt, date: selectedDate });
       }
     }
   };
@@ -733,14 +738,20 @@ export default function Admin() {
                         📞 Appeler
                       </a>
 
-                      {/* WhatsApp Rappel */}
+                      {/* WhatsApp Rappel / Confirmation */}
                       <a
-                        href={getWhatsAppLink(getReminderMessage(appt), appt.clientPhone)}
+                        href={getWhatsAppLinkTo(appt.clientPhone, getConfirmationMessageToClient({
+                          clientName: appt.clientName,
+                          serviceName: appt.serviceName,
+                          date: formatDateFR(selectedDate),
+                          time: appt.startTime,
+                          clientPhone: appt.clientPhone,
+                        }))}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-ghost"
                         style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#16A34A', borderColor: '#BBF7D0' }}
-                        title="Envoyer un message WhatsApp"
+                        title="Envoyer un message WhatsApp de confirmation"
                       >
                         💬 WhatsApp
                       </a>
@@ -956,6 +967,14 @@ export default function Admin() {
         appt={cancelledAppt}
         onClose={() => setCancelledAppt(null)}
         context="admin"
+      />
+    )}
+
+    {/* Modal de validation de rendez-vous avec bouton WhatsApp */}
+    {confirmedAppt && (
+      <ConfirmAppointmentModal
+        appt={confirmedAppt}
+        onClose={() => setConfirmedAppt(null)}
       />
     )}
     </>

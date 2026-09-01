@@ -20,6 +20,27 @@ export function getWhatsAppLinkTo(phone, message = '') {
   return `https://wa.me/${fullNumber}${encoded ? `?text=${encoded}` : ''}`;
 }
 
+// Message de notification de confirmation envoyé AU CLIENT par l'admin (Arabe Tunisien)
+export function getConfirmationMessageToClient({ clientName, serviceName, date, time, clientPhone }) {
+  const trackingUrl = clientPhone
+    ? `https://coiffeur-umber.vercel.app/suivi?phone=${clientPhone}`
+    : 'https://coiffeur-umber.vercel.app/suivi';
+
+  return `عسلامة ${clientName}،
+
+نعلموك إلي الموعد متاعك عند *محمد الحيشي (Gar3a)* تم *تأكيده بنجاح* ✅ :
+
+✂️ الخدمة : ${serviceName}
+📅 التاريخ : ${date}
+⏰ الوقت : ${time}
+
+📍 العنوان : حمام الزريبة، زغوان
+🔗 تنجم تتبع الموعد متاعك من هنا :
+${trackingUrl}
+
+مرحبا بيك في كل وقت — فريق Gar3a ✂️`;
+}
+
 // Message de notification d'annulation envoyé AU CLIENT par l'admin (Arabe Tunisien)
 export function getCancellationMessageToClient({ clientName, serviceName, date, time }) {
   return `عسلامة ${clientName}،
