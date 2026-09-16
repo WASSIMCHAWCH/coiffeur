@@ -67,6 +67,7 @@ const FALLBACK_SERVICES = [
   { id: 'S001', name: 'Coupe',        duration: 30, description: 'Coupe de cheveux professionnelle', icon: '✂️', active: true },
   { id: 'S002', name: 'Barbe',        duration: 20, description: 'Taille et soin de la barbe',       icon: '🧔', active: true },
   { id: 'S003', name: 'Coupe + Barbe',duration: 45, description: 'Le combo complet — coupe et barbe',icon: '✨', active: true },
+  { id: 'S004', name: 'Brushing',     duration: 10, description: 'Brushing rapide et mise en forme', icon: '💨', active: true },
 ];
 
 const FALLBACK_SCHEDULE = [
@@ -104,6 +105,19 @@ async function fetchWithCache(cacheKey, apiFn, fallback, onUpdate) {
   }
 }
 
+// Assure la présence des services de base (dont Brushing) même si le Sheet n'est pas à jour
+function ensureEssentialServices(list) {
+  if (!Array.isArray(list) || list.length === 0) return FALLBACK_SERVICES;
+  const hasBrushing = list.some(s => s.id === 'S004' || (s.name && s.name.toLowerCase().includes('brushing')));
+  if (!hasBrushing) {
+    return [
+      ...list,
+      { id: 'S004', name: 'Brushing', duration: 10, description: 'Brushing rapide et mise en forme', icon: '💨', active: true }
+    ];
+  }
+  return list;
+}
+
 // ── GET /shop ──────────────────────────────────────────────────
 export async function getShopInfo(onUpdate) {
   return fetchWithCache('shop', () => fetchGet({ action: 'shop' }), FALLBACK_SHOP, onUpdate);
@@ -111,7 +125,17 @@ export async function getShopInfo(onUpdate) {
 
 // ── GET /services ──────────────────────────────────────────────
 export async function getServices(onUpdate) {
-  return fetchWithCache('services', () => fetchGet({ action: 'services' }), FALLBACK_SERVICES, onUpdate);
+  return fetchWithCache(
+    'services',
+    async () => {
+      const fresh = await fetchGet({ action: 'services' });
+      return ensureEssentialServices(fresh);
+    },
+    FALLBACK_SERVICES,
+    (fresh) => {
+      if (onUpdate) onUpdate(ensureEssentialServices(fresh));
+    }
+  );
 }
 
 // ── GET /schedule ──────────────────────────────────────────────

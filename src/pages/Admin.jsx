@@ -38,8 +38,13 @@ export default function Admin() {
   const [newPinInput, setNewPinInput] = useState('');
   const [pinChangedMsg, setPinChangedMsg] = useState('');
 
-  // ── Statut du salon ──
-  const { isOpen: shopOpen, toggle: toggleShopStatus } = useShopStatus();
+  // ── Statut du salon & Verrouillage global des créneaux ──
+  const {
+    isOpen: shopOpen,
+    toggle: toggleShopStatus,
+    allSlotsClosed,
+    toggleAllSlotsClosed,
+  } = useShopStatus();
   const [statusFeedback, setStatusFeedback] = useState('');
 
   const handleToggleStatus = () => {
@@ -47,6 +52,23 @@ export default function Admin() {
     const nextState = !shopOpen;
     setStatusFeedback(nextState ? '✅ Salon marqué comme OUVERT' : '🔴 Salon marqué comme FERMÉ');
     setTimeout(() => setStatusFeedback(''), 3000);
+  };
+
+  const handleToggleAllSlotsClosed = () => {
+    if (!allSlotsClosed) {
+      const confirmClose = window.confirm(
+        '⚠️ Êtes-vous sûr de vouloir fermer TOUS les créneaux de rendez-vous ?\n\nLorsqu’il est activé, tous les créneaux de toutes les dates et de toutes les heures seront désactivés et affichés en gris côté client.'
+      );
+      if (!confirmClose) return;
+    }
+    toggleAllSlotsClosed();
+    const nextState = !allSlotsClosed;
+    setStatusFeedback(
+      nextState
+        ? '🚫 TOUS les créneaux ont été FERMÉS aux clients'
+        : '✅ Tous les créneaux sont de nouveau OUVERTS'
+    );
+    setTimeout(() => setStatusFeedback(''), 4000);
   };
 
   const [selectedDate, setSelectedDate] = useState(formatDateISO(new Date()));
@@ -191,14 +213,18 @@ export default function Admin() {
   // Ajout rapide d'un client direct
   const handleQuickAdd = async (e) => {
     e.preventDefault();
-    if (!newClient.name || !newClient.phone || !quickSlot) return;
-    const selectedSvc = services.find(s => s.id === newClient.serviceId) || { name: 'Coupe', duration: 30 };
-    
+    const selectedSvc = services.find(s => s.id === newClient.serviceId) ||
+      (newClient.serviceId === 'S004' ? { id: 'S004', name: 'Brushing', duration: 10 } :
+       newClient.serviceId === 'S_FAMILLE' ? { id: 'S_FAMILLE', name: 'Famille (Père + Enfants)', duration: 35 } :
+       { id: 'S001', name: 'Coupe', duration: 30 });
+
+    const calculatedEnd = calcEndTime(quickSlot, selectedSvc.duration || 30);
+
     const newAppt = {
       id: 'WALK-' + Date.now(),
       date: selectedDate,
       startTime: quickSlot,
-      endTime: quickSlot, // calculé
+      endTime: calculatedEnd,
       serviceId: selectedSvc.id,
       serviceName: selectedSvc.name,
       clientName: newClient.name.trim(),
@@ -427,7 +453,51 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* ── Panneau Statut du Salon ── */}
+          {/* Alerte Verrouillage Total Actif */}
+          {allSlotsClosed && (
+            <div style={{
+              marginTop: '16px',
+              padding: '14px 18px',
+              background: '#FEF2F2',
+              border: '1.5px solid #EF4444',
+              borderRadius: 'var(--radius-md, 10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.1)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🚨</span>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#991B1B', fontSize: '0.9rem' }}>
+                    TOUS LES CRÉNEAUX SONT FERMÉS AUX CLIENTS
+                  </div>
+                  <div style={{ color: '#B91C1C', fontSize: '0.8rem' }}>
+                    Toutes les dates et heures sont désactivées et affichées en gris sur la page de réservation.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleAllSlotsClosed}
+                style={{
+                  background: '#16A34A',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 14px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                }}
+              >
+                🔓 Débloquer les créneaux
+              </button>
+            </div>
+          )}
+
+          {/* ── Panneau Statut du Salon & Fermeture des rendez-vous ── */}
           <div style={{
             marginTop: '16px',
             paddingTop: '16px',
@@ -438,7 +508,7 @@ export default function Admin() {
             flexWrap: 'wrap',
             gap: '12px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Statut du salon
               </span>
@@ -471,50 +541,54 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Bouton Toggle */}
-            <button
-              onClick={handleToggleStatus}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: `2px solid ${shopOpen ? '#FCA5A5' : '#BBF7D0'}`,
-                background: shopOpen ? '#FEF2F2' : '#F0FDF4',
-                color: shopOpen ? '#DC2626' : '#16A34A',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                letterSpacing: '0.03em',
-              }}
-              title={shopOpen ? 'Cliquer pour fermer le salon' : 'Cliquer pour ouvrir le salon'}
-            >
-              {/* Toggle visuel */}
-              <div style={{
-                width: '40px',
-                height: '22px',
-                borderRadius: '11px',
-                background: shopOpen ? '#16A34A' : '#D1D5DB',
-                position: 'relative',
-                transition: 'background 0.3s ease',
-                flexShrink: 0,
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '3px',
-                  left: shopOpen ? '21px' : '3px',
-                  width: '16px',
-                  height: '16px',
-                  borderRadius: '50%',
-                  background: '#fff',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                  transition: 'left 0.3s ease',
-                }} />
-              </div>
-              {shopOpen ? '🔴 Fermer le salon' : '🟢 Ouvrir le salon'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Bouton Toggle Salon Ouvert/Fermé */}
+              <button
+                onClick={handleToggleStatus}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  border: `2px solid ${shopOpen ? '#FCA5A5' : '#BBF7D0'}`,
+                  background: shopOpen ? '#FEF2F2' : '#F0FDF4',
+                  color: shopOpen ? '#DC2626' : '#16A34A',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  letterSpacing: '0.03em',
+                }}
+                title={shopOpen ? 'Cliquer pour fermer le salon' : 'Cliquer pour ouvrir le salon'}
+              >
+                {shopOpen ? '🔴 Fermer le salon' : '🟢 Ouvrir le salon'}
+              </button>
+
+              {/* Bouton FERMER TOUS LES RENDEZ-VOUS */}
+              <button
+                onClick={handleToggleAllSlotsClosed}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  border: `2px solid ${allSlotsClosed ? '#16A34A' : '#DC2626'}`,
+                  background: allSlotsClosed ? '#F0FDF4' : '#FEF2F2',
+                  color: allSlotsClosed ? '#16A34A' : '#DC2626',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  letterSpacing: '0.03em',
+                }}
+                id="btn-close-all-slots"
+                title={allSlotsClosed ? 'Cliquer pour rouvrir tous les créneaux' : 'Désactiver tous les créneaux de toutes les dates (affichés en gris)'}
+              >
+                {allSlotsClosed ? '🔓 Rouvrir tous les créneaux' : '🔒 Fermer tous les rendez-vous'}
+              </button>
+            </div>
           </div>
 
           {/* Sélecteur de date */}
@@ -885,6 +959,8 @@ export default function Admin() {
                     <option value="S001">✂️ Coupe (30 min)</option>
                     <option value="S002">🧔 Barbe (20 min)</option>
                     <option value="S003">✨ Coupe + Barbe (45 min)</option>
+                    <option value="S004">💨 Brushing (10 min)</option>
+                    <option value="S_FAMILLE">👨‍👧‍👦 Famille (Père + Enfants)</option>
                   </select>
                 </div>
 

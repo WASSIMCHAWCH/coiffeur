@@ -1,15 +1,20 @@
-// Bouton créneau horaire
-export default function TimeSlot({ time, available, selected, onClick }) {
+// Bouton créneau horaire avec support des sous-créneaux et affichage gris des périodes occupées
+export default function TimeSlot({ time, available, selected, onClick, partial, label }) {
   return (
     <button
-      className={`time-slot${!available ? ' unavailable' : ''}${selected ? ' selected' : ''}`}
+      type="button"
+      className={`time-slot${!available ? ' unavailable' : ''}${selected ? ' selected' : ''}${partial && available ? ' partial-available' : ''}`}
       onClick={available ? onClick : undefined}
       disabled={!available}
-      aria-label={available ? `Choisir ${time}` : `${time} — indisponible`}
-      title={available ? `Réserver à ${time}` : 'Créneau déjà pris'}
+      aria-label={available ? `Choisir ${time}${label ? ` (${label})` : ''}` : `${time} — ${label || 'indisponible'}`}
+      title={available ? `Réserver à ${time}${label ? ` (${label})` : ''}` : `${time} — ${label || 'Indisponible'}`}
     >
-      {time}
-      {!available && <span style={{ display: 'block', fontSize: '0.6rem', marginTop: '2px' }}>Pris</span>}
+      <span className="time-slot-time" style={{ display: 'block' }}>{time}</span>
+      {label ? (
+        <span className="time-slot-subtext">{label}</span>
+      ) : !available ? (
+        <span className="time-slot-subtext">Pris</span>
+      ) : null}
     </button>
   );
 }

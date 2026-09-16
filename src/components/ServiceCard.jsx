@@ -3,13 +3,15 @@ export default function ServiceCard({ service, selected, onClick, interactive = 
     S001: '✂️',
     S002: '🧔',
     S003: '✨',
+    S004: '💨',
+    S_FAMILLE: '👨‍👧‍👦',
   };
 
   const icon = service.icon || icons[service.id] || '✂️';
 
   return (
     <div
-      className={`service-card${selected ? ' selected' : ''}${!interactive ? ' no-hover' : ''}`}
+      className={`service-card${selected ? ' selected' : ''}${!interactive ? ' no-hover' : ''}${service.isFamily ? ' famille-card' : ''}`}
       onClick={interactive ? onClick : undefined}
       style={{ cursor: interactive ? 'pointer' : 'default' }}
       role={interactive ? 'button' : undefined}
@@ -26,10 +28,11 @@ export default function ServiceCard({ service, selected, onClick, interactive = 
           {service.description}
         </p>
       )}
+      {selected && (
         <div style={{ marginTop: '16px' }}>
           <span style={{
             display: 'inline-block',
-            background: 'var(--red)',
+            background: 'var(--red, #DC2626)',
             color: '#ffffff',
             fontWeight: 700,
             fontSize: '0.75rem',
@@ -42,6 +45,7 @@ export default function ServiceCard({ service, selected, onClick, interactive = 
             ✓ Sélectionné
           </span>
         </div>
+      )}
     </div>
   );
 }

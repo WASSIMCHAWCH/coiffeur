@@ -17,7 +17,7 @@
 
 // ── Configuration ──────────────────────────────────────────
 const SPREADSHEET_ID = '1tQPBPGtcZ3VZq72QAjHjLYPwmLixMH6L6Xgr9Ss-a7M';
-const SLOT_STEP_MINUTES = 30; // Intervalle entre créneaux
+const SLOT_STEP_MINUTES = 10; // Intervalle entre créneaux (support des services 10/20/30 min)
 
 // ── Point d'entrée GET ─────────────────────────────────────
 function doGet(e) {
@@ -480,6 +480,7 @@ function initSpreadsheet() {
   svcSheet.appendRow(['S001', 'Coupe', 30, 'Coupe de cheveux professionnelle', '✂️', true]);
   svcSheet.appendRow(['S002', 'Barbe', 20, 'Taille et soin de la barbe', '🧔', true]);
   svcSheet.appendRow(['S003', 'Coupe + Barbe', 45, 'Le combo complet — coupe et barbe', '✨', true]);
+  svcSheet.appendRow(['S004', 'Brushing', 10, 'Brushing rapide et mise en forme', '💨', true]);
 
   // 3. Feuille Schedule (Horaires 09:00 - 21:00, Vendredi repos)
   let schSheet = ss.getSheetByName('Schedule');
