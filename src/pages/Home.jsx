@@ -14,7 +14,15 @@ export default function Home() {
   const [schedule, setSchedule] = useState([]);
 
   useEffect(() => {
-    Promise.all([getShopInfo(), getServices(), getSchedule()]).then(([s, svc, sch]) => {
+    const onShopUpdate  = (s)   => setShop(s);
+    const onSvcUpdate   = (svc) => setServices(svc.filter(s => s.active));
+    const onSchUpdate   = (sch) => setSchedule(sch);
+
+    Promise.all([
+      getShopInfo(onShopUpdate),
+      getServices(onSvcUpdate),
+      getSchedule(onSchUpdate),
+    ]).then(([s, svc, sch]) => {
       setShop(s);
       setServices(svc.filter(s => s.active));
       setSchedule(sch);

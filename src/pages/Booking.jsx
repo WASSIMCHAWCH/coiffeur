@@ -53,7 +53,9 @@ export default function Booking() {
 
   // Charger services + horaires
   useEffect(() => {
-    Promise.all([getServices(), getSchedule()]).then(([svc, sch]) => {
+    const onSvcUpdate = (svc) => setServices(svc.filter(s => s.active));
+    const onSchUpdate = (sch) => setSchedule(sch);
+    Promise.all([getServices(onSvcUpdate), getSchedule(onSchUpdate)]).then(([svc, sch]) => {
       setServices(svc.filter(s => s.active));
       setSchedule(sch);
     });
