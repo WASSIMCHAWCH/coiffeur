@@ -7,9 +7,9 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 // ── Cache localStorage (stale-while-revalidate) ──────────────
 const CACHE_TTL = {
-  services: 10 * 60 * 1000, // 10 min
-  schedule: 10 * 60 * 1000, // 10 min
-  shop:      5 * 60 * 1000, //  5 min
+  services: 30 * 60 * 1000, // 30 min (les services changent rarement)
+  schedule: 30 * 60 * 1000, // 30 min (les horaires changent rarement)
+  shop:      10 * 60 * 1000, // 10 min
 };
 
 function cacheGet(key) {
@@ -82,29 +82,35 @@ const FALLBACK_SCHEDULE = [
 ];
 
 // ── Fetch avec cache stale-while-revalidate ───────────────────
-// Retourne immédiatement la valeur en cache (ou le fallback),
-// puis recharge l'API en arrière-plan et met à jour le cache.
+// Retourne IMMÉDIATEMENT le cache (s'il existe) ou le fallback,
+// puis recharge l'API en arrière-plan silencieusement.
+// → Plus jamais de squelettes sur la page services !
 async function fetchWithCache(cacheKey, apiFn, fallback, onUpdate) {
   const cached = cacheGet(cacheKey);
 
+  // ── Cas 1 : cache valide ────────────────────────────────────
   if (cached) {
     // Revalidation en arrière-plan (sans bloquer l'UI)
     apiFn().then(fresh => {
       cacheSet(cacheKey, fresh);
       if (onUpdate) onUpdate(fresh);
-    }).catch(() => { /* réseau indisponible, on garde le cache */ });
+    }).catch(() => { /* réseau ou cold start, on garde le cache */ });
     return cached;
   }
 
-  // Pas de cache → attendre la réponse API
-  try {
-    const data = await apiFn();
-    cacheSet(cacheKey, data);
-    return data;
-  } catch {
-    return fallback;
-  }
+  // ── Cas 2 : pas de cache → afficher FALLBACK immédiatement ──
+  // On lance la requête API en arrière-plan et on met à jour dès
+  // qu'elle répond (cold start GAS peut prendre 3-8s, pas question
+  // de bloquer l'affichage en attendant).
+  apiFn().then(fresh => {
+    cacheSet(cacheKey, fresh);
+    if (onUpdate) onUpdate(fresh);
+  }).catch(() => { /* silencieux */ });
+
+  // Retourner le fallback tout de suite → affichage instantané
+  return fallback;
 }
+
 
 // Assure la présence des services de base (dont Brushing) même si le Sheet n'est pas à jour
 function ensureEssentialServices(list) {
