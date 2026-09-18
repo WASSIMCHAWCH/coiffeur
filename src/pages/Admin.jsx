@@ -215,10 +215,13 @@ export default function Admin() {
   const handleQuickAdd = async (e) => {
     e.preventDefault();
     const selectedSvc = services.find(s => s.id === newClient.serviceId) ||
-      (newClient.serviceId === 'S004' ? { id: 'S004', name: 'Brushing', duration: 10 } :
+      (newClient.serviceId === 'S001' ? { id: 'S001', name: 'Coupe', duration: 20 } :
+       newClient.serviceId === 'S002' ? { id: 'S002', name: 'Barbe', duration: 15 } :
+       newClient.serviceId === 'S003' ? { id: 'S003', name: 'Coupe + Barbe', duration: 35 } :
+       newClient.serviceId === 'S004' ? { id: 'S004', name: 'Brushing', duration: 10 } :
        newClient.serviceId === 'S005' ? { id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 45 } :
        newClient.serviceId === 'S_FAMILLE' ? { id: 'S_FAMILLE', name: 'Famille (Père + Enfants)', duration: 35 } :
-       { id: 'S001', name: 'Coupe', duration: 30 });
+       { id: 'S001', name: 'Coupe', duration: 20 });
 
     const calculatedEnd = calcEndTime(quickSlot, selectedSvc.duration || 30);
 
@@ -977,9 +980,9 @@ export default function Admin() {
                     onChange={e => setNewClient({ ...newClient, serviceId: e.target.value })}
                     className="form-input"
                   >
-                    <option value="S001">✂️ Coupe (30 min)</option>
-                    <option value="S002">🧔 Barbe (20 min)</option>
-                    <option value="S003">✨ Coupe + Barbe (45 min)</option>
+                    <option value="S001">✂️ Coupe (20 min)</option>
+                    <option value="S002">🧔 Barbe (15 min)</option>
+                    <option value="S003">✨ Coupe + Barbe (35 min)</option>
                     <option value="S004">💨 Brushing (10 min)</option>
                     <option value="S005">💈 Coupe + Barbe + Brushing (45 min)</option>
                     <option value="S_FAMILLE">👨‍👧‍👦 Famille (Père + Enfants)</option>

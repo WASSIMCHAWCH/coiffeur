@@ -13,7 +13,7 @@ export const STATIC_SERVICES = [
   {
     id: 'S001',
     name: 'Coupe',
-    duration: 30,
+    duration: 20,
     description: 'Coupe de cheveux professionnelle',
     icon: '✂️',
     active: true,
@@ -21,7 +21,7 @@ export const STATIC_SERVICES = [
   {
     id: 'S002',
     name: 'Barbe',
-    duration: 20,
+    duration: 15,
     description: 'Taille et soin de la barbe',
     icon: '🧔',
     active: true,
@@ -29,7 +29,7 @@ export const STATIC_SERVICES = [
   {
     id: 'S003',
     name: 'Coupe + Barbe',
-    duration: 45,
+    duration: 35,
     description: 'Le combo complet — coupe et barbe',
     icon: '✨',
     active: true,
