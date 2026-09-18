@@ -82,6 +82,7 @@ export default function Admin() {
   const [newClient, setNewClient] = useState({ name: '', phone: '', serviceId: 'S001' });
 
   const [showAdvanced, setShowAdvanced] = useState(false); // Menu Plus d'options
+  const [showStatsModal, setShowStatsModal] = useState(false); // Popup statistiques journalières
 
   // Modal de confirmation d'annulation avec WhatsApp
   const [cancelledAppt, setCancelledAppt] = useState(null);
@@ -215,6 +216,7 @@ export default function Admin() {
     e.preventDefault();
     const selectedSvc = services.find(s => s.id === newClient.serviceId) ||
       (newClient.serviceId === 'S004' ? { id: 'S004', name: 'Brushing', duration: 10 } :
+       newClient.serviceId === 'S005' ? { id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 55 } :
        newClient.serviceId === 'S_FAMILLE' ? { id: 'S_FAMILLE', name: 'Famille (Père + Enfants)', duration: 35 } :
        { id: 'S001', name: 'Coupe', duration: 30 });
 
@@ -441,8 +443,27 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Bouton Toggle Plus d'options */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Boutons d'action : Stats + Plus d'options */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Bouton Statistiques du Jour */}
+              <button
+                onClick={() => setShowStatsModal(true)}
+                className="btn-ghost"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#EFF6FF',
+                  borderColor: '#BFDBFE',
+                  color: '#1D4ED8',
+                  fontWeight: 700,
+                }}
+                title="Voir les statistiques du jour"
+              >
+                📊 Stats du Jour
+              </button>
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 className="btn-ghost"
@@ -960,6 +981,7 @@ export default function Admin() {
                     <option value="S002">🧔 Barbe (20 min)</option>
                     <option value="S003">✨ Coupe + Barbe (45 min)</option>
                     <option value="S004">💨 Brushing (10 min)</option>
+                    <option value="S005">💈 Coupe + Barbe + Brushing (55 min)</option>
                     <option value="S_FAMILLE">👨‍👧‍👦 Famille (Père + Enfants)</option>
                   </select>
                 </div>
@@ -1036,6 +1058,159 @@ export default function Admin() {
 
       </div>
     </main>
+
+    {/* ═══ Modal Statistiques du Jour ═══ */}
+    {showStatsModal && (() => {
+      const todayLabel = formatDateFR(selectedDate);
+      const total      = processedAppointments.length;
+      const completed  = processedAppointments.filter(a => a.status === 'COMPLETED').length;
+      const confirmed  = processedAppointments.filter(a => a.status === 'CONFIRMED').length;
+      const pending    = processedAppointments.filter(a => a.status === 'PENDING').length;
+      const cancelled  = processedAppointments.filter(a => a.status === 'CANCELLED').length;
+
+      // Répartition par service
+      const svcMap = {};
+      processedAppointments.forEach(a => {
+        const key = a.serviceName || 'Autre';
+        svcMap[key] = (svcMap[key] || 0) + 1;
+      });
+      const svcEntries = Object.entries(svcMap).sort((x, y) => y[1] - x[1]);
+
+      const statCards = [
+        { label: 'Terminés',   value: completed, color: '#2563EB', bg: '#EFF6FF', icon: '✂️' },
+        { label: 'Confirmés',  value: confirmed, color: '#16A34A', bg: '#F0FDF4', icon: '✅' },
+        { label: 'En attente', value: pending,   color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
+        { label: 'Refusés',    value: cancelled, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
+      ];
+
+      return (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 3000,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setShowStatsModal(false); }}
+        >
+          <div
+            className="card-dark animate-scaleIn"
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              padding: '28px 24px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+            }}
+          >
+            {/* Header popup */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  📊 Statistiques du Jour
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {todayLabel}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowStatsModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.3rem',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1,
+                  padding: '4px',
+                }}
+              >✕</button>
+            </div>
+
+            {/* Compteur principal */}
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              background: 'linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid #BFDBFE',
+              marginBottom: '16px',
+            }}>
+              <div style={{ fontSize: '3rem', fontWeight: 900, color: '#1D4ED8', lineHeight: 1 }}>
+                {completed}
+              </div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1D4ED8', marginTop: '6px' }}>
+                client{completed !== 1 ? 's' : ''} terminé{completed !== 1 ? 's' : ''} aujourd'hui
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                sur {total} rendez-vous au total
+              </div>
+            </div>
+
+            {/* Grille stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '20px' }}>
+              {statCards.map(s => (
+                <div
+                  key={s.label}
+                  style={{
+                    textAlign: 'center',
+                    padding: '14px 8px',
+                    background: s.bg,
+                    borderRadius: 'var(--radius-md)',
+                    border: `1.5px solid ${s.color}22`,
+                  }}
+                >
+                  <div style={{ fontSize: '0.95rem', marginBottom: '4px' }}>{s.icon}</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, marginTop: '4px' }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Répartition par service */}
+            {svcEntries.length > 0 && (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>
+                  Répartition par prestation
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {svcEntries.map(([name, count]) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flex: 1, fontWeight: 600 }}>{name}</div>
+                      <div style={{ flex: 2, background: '#F1F5F9', borderRadius: '100px', height: '8px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${Math.round((count / total) * 100)}%`,
+                          background: 'linear-gradient(90deg, var(--blue, #2563EB), #60A5FA)',
+                          borderRadius: '100px',
+                          transition: 'width 0.6s ease',
+                        }} />
+                      </div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', minWidth: '20px', textAlign: 'right' }}>{count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pied */}
+            <button
+              onClick={() => setShowStatsModal(false)}
+              className="btn-ghost"
+              style={{ width: '100%', marginTop: '20px', justifyContent: 'center', fontSize: '0.85rem' }}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Modal de confirmation d'annulation avec bouton WhatsApp */}
     {cancelledAppt && (

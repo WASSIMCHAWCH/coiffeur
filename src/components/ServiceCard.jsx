@@ -4,6 +4,7 @@ export default function ServiceCard({ service, selected, onClick, interactive = 
     S002: '🧔',
     S003: '✨',
     S004: '💨',
+    S005: '💈',
     S_FAMILLE: '👨‍👧‍👦',
   };
 
