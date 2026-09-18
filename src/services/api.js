@@ -68,7 +68,7 @@ const FALLBACK_SERVICES = [
   { id: 'S002', name: 'Barbe',                   duration: 20, description: 'Taille et soin de la barbe',                    icon: '🧔', active: true },
   { id: 'S003', name: 'Coupe + Barbe',           duration: 45, description: 'Le combo complet — coupe et barbe',             icon: '✨', active: true },
   { id: 'S004', name: 'Brushing',                duration: 10, description: 'Brushing rapide et mise en forme',              icon: '💨', active: true },
-  { id: 'S005', name: 'Coupe + Barbe + Brushing',duration: 55, description: 'La formule complète : coupe, barbe et brushing', icon: '💈', active: true },
+  { id: 'S005', name: 'Coupe + Barbe + Brushing',duration: 45, description: 'La formule complète : coupe, barbe et brushing', icon: '💈', active: true },
 ];
 
 const FALLBACK_SCHEDULE = [
@@ -116,7 +116,7 @@ function ensureEssentialServices(list) {
   }
   const hasComboFull = result.some(s => s.id === 'S005' || (s.name && s.name.toLowerCase().includes('brushing') && s.name.toLowerCase().includes('coupe')));
   if (!hasComboFull) {
-    result.push({ id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 55, description: 'La formule complète : coupe, barbe et brushing', icon: '💈', active: true });
+    result.push({ id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 45, description: 'La formule complète : coupe, barbe et brushing', icon: '💈', active: true });
   }
   return result;
 }

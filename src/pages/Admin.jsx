@@ -216,7 +216,7 @@ export default function Admin() {
     e.preventDefault();
     const selectedSvc = services.find(s => s.id === newClient.serviceId) ||
       (newClient.serviceId === 'S004' ? { id: 'S004', name: 'Brushing', duration: 10 } :
-       newClient.serviceId === 'S005' ? { id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 55 } :
+       newClient.serviceId === 'S005' ? { id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 45 } :
        newClient.serviceId === 'S_FAMILLE' ? { id: 'S_FAMILLE', name: 'Famille (Père + Enfants)', duration: 35 } :
        { id: 'S001', name: 'Coupe', duration: 30 });
 
@@ -981,7 +981,7 @@ export default function Admin() {
                     <option value="S002">🧔 Barbe (20 min)</option>
                     <option value="S003">✨ Coupe + Barbe (45 min)</option>
                     <option value="S004">💨 Brushing (10 min)</option>
-                    <option value="S005">💈 Coupe + Barbe + Brushing (55 min)</option>
+                    <option value="S005">💈 Coupe + Barbe + Brushing (45 min)</option>
                     <option value="S_FAMILLE">👨‍👧‍👦 Famille (Père + Enfants)</option>
                   </select>
                 </div>
