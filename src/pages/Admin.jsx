@@ -91,7 +91,8 @@ export default function Admin() {
 
   const today = new Date();
   const dayIndex = getDayIndex(selectedDate); // 0=Lun .. 4=Ven .. 6=Dim
-  const isFriday = dayIndex === 4;
+  const currentDaySchedule = schedule[dayIndex];
+  const isDayOff = currentDaySchedule ? !currentDaySchedule.active : dayIndex === 0;
 
   const currentStoredPin = localStorage.getItem('gar3a_custom_pin') || defaultPin;
 
@@ -292,8 +293,8 @@ export default function Admin() {
     if (filter === 'CONFIRMED') return a.status === 'CONFIRMED';
     if (filter === 'COMPLETED') return a.status === 'COMPLETED';
     if (filter === 'CANCELLED') return a.status === 'CANCELLED';
-    // "ALL" (par défaut) : uniquement les rendez-vous actifs à venir
-    return a.status === 'PENDING' || a.status === 'CONFIRMED';
+    // "ALL" (par défaut) : tous les rendez-vous actifs et terminés de la journée
+    return a.status === 'PENDING' || a.status === 'CONFIRMED' || a.status === 'COMPLETED';
   });
 
   const getReminderMessage = (appt) => {
@@ -641,8 +642,8 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Alerte jour de repos (Vendredi) */}
-        {isFriday && (
+        {/* Alerte jour de repos (Lundi ou selon planning) */}
+        {isDayOff && (
           <div style={{
             background: '#FEF2F2',
             border: '1px solid #FCA5A5',
@@ -656,7 +657,7 @@ export default function Admin() {
           }}>
             <span style={{ fontSize: '1.4rem' }}>⛔</span>
             <div>
-              <strong style={{ fontSize: '0.9rem' }}>Vendredi — Jour de repos hebdomadaire</strong>
+              <strong style={{ fontSize: '0.9rem' }}>{currentDaySchedule?.day || 'Lundi'} — Jour de repos hebdomadaire</strong>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                 Le salon est officiellement fermé pour les réservations en ligne.
               </div>
@@ -705,11 +706,11 @@ export default function Admin() {
             {/* Onglets de filtrage */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
-                { key: 'ALL',       label: `Tous actifs (${processedAppointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED').length})` },
+                { key: 'ALL',       label: `Tous (${processedAppointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED' || a.status === 'COMPLETED').length})` },
                 { key: 'PENDING',   label: `⏳ En attente (${processedAppointments.filter(a => a.status === 'PENDING').length})` },
                 { key: 'CONFIRMED', label: `✅ Confirmés (${processedAppointments.filter(a => a.status === 'CONFIRMED').length})` },
                 { key: 'COMPLETED', label: `✂️ Terminés (${processedAppointments.filter(a => a.status === 'COMPLETED').length})` },
-                { key: 'CANCELLED', label: `❌ Refusés / Expirés (${processedAppointments.filter(a => a.status === 'CANCELLED').length})` },
+                { key: 'CANCELLED', label: `❌ Refusés (${processedAppointments.filter(a => a.status === 'CANCELLED').length})` },
                 { key: 'TIMELINE',  label: '⏱ Vue Grille' },
               ].map(tab => (
                 <button

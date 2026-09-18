@@ -79,6 +79,18 @@ export function computeTimeSlots({
   for (let blockStart = openM; blockStart < closeM; blockStart += 30) {
     const blockEnd = Math.min(blockStart + 30, closeM);
 
+    // ── BLOC DÉJÀ PASSÉ AUJOURD'HUI ──
+    const isPast = isToday && blockStart <= currentMinutes;
+    if (isPast) {
+      resultSlots.push({
+        time: minutesToTime(blockStart),
+        available: false,
+        partial: false,
+        label: 'Passé',
+      });
+      continue;
+    }
+
     // Pause déjeuner éventuelle
     if (breakStartM !== null && breakEndM !== null && blockStart < breakEndM && blockEnd > breakStartM) {
       resultSlots.push({
@@ -95,16 +107,13 @@ export function computeTimeSlots({
 
     if (overlapping.length === 0) {
       // ── BLOC 100% LIBRE ──
-      const isPast = isToday && blockStart <= currentMinutes;
       // Vérifier si le service sélectionné dépasse l'heure de fermeture ou chevauche un RDV ultérieur
       const serviceEnd = blockStart + serviceDuration;
       const exceedsClose = serviceEnd > closeM;
       const overlapsLater = activeAppts.some(a => a.start < serviceEnd && a.end > blockStart);
 
-      const available = !isPast && !exceedsClose && !overlapsLater;
-      let label = null;
-      if (isPast) label = 'Passé';
-      else if (!available) label = 'Complet';
+      const available = !exceedsClose && !overlapsLater;
+      const label = !available ? 'Complet' : null;
 
       resultSlots.push({
         time: minutesToTime(blockStart),
