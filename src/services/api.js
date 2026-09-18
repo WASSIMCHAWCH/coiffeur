@@ -111,40 +111,60 @@ export async function getShopInfo(onUpdate) {
 }
 
 // ── GET /services ──────────────────────────────────────────────
-// Architecture hybride : affiche STATIC_SERVICES immédiatement (0ms),
-// puis synchronise avec Google Sheets en arrière-plan.
-// Si Mohamed modifie un service dans Sheets, la mise à jour arrive
-// silencieusement via onUpdate() dès que GAS répond (max 30 min via cache).
+// Architecture hybride :
+// 1. Retourne TOUJOURS STATIC_SERVICES immédiatement (0ms, 5 services garantis)
+// 2. GAS est appelé en background pour sync Sheets → fusionne avec le statique
+//    (GAS peut mettre à jour/ajouter mais ne peut pas SUPPRIMER les services statiques)
+// 3. Cache versionnée 'services_v2' pour invalider l'ancien cache GAS (3 services)
 export async function getServices(onUpdate) {
-  const immediate = STATIC_SERVICES.filter(s => s.active);
+  // Toujours afficher le statique immédiatement
+  const staticActive = STATIC_SERVICES.filter(s => s.active);
 
-  // Lancer la sync GAS en arrière-plan (sans bloquer l'affichage)
-  const cached = cacheGet('services');
+  // Fusion : STATIC_SERVICES est la base, GAS peut mettre à jour ou ajouter
+  // mais jamais supprimer un service statique (S004, S005 toujours présents)
+  function mergeWithStatic(gasServices) {
+    if (!Array.isArray(gasServices) || gasServices.length === 0) return staticActive;
+    const merged = [...STATIC_SERVICES];
+    gasServices.forEach(gasSvc => {
+      const idx = merged.findIndex(s => s.id === gasSvc.id);
+      if (idx >= 0) {
+        // GAS met à jour un service existant (durée, nom, description…)
+        merged[idx] = { ...merged[idx], ...gasSvc };
+      } else {
+        // GAS ajoute un nouveau service inconnu du statique
+        merged.push(gasSvc);
+      }
+    });
+    return merged.filter(s => s.active);
+  }
+
+  // Clé 'services_v2' pour invalider l'ancien cache GAS (qui n'avait que 3 services)
+  const cached = cacheGet('services_v2');
+
   if (cached) {
-    // Cache valide : l'utiliser pour la revalidation en arrière-plan
+    // Background revalidation depuis GAS
     fetchGet({ action: 'services' })
       .then(fresh => {
-        if (Array.isArray(fresh) && fresh.length > 0) {
-          cacheSet('services', fresh);
-          if (onUpdate) onUpdate(fresh.filter(s => s.active));
-        }
+        const merged = mergeWithStatic(fresh);
+        cacheSet('services_v2', merged);
+        if (onUpdate) onUpdate(merged);
       })
       .catch(() => { /* GAS indisponible, cache conservé */ });
-    // Retourner le cache (plus frais que le statique si disponible)
+    // Retourner le cache fusionné (toujours >= 5 services)
     return cached.filter(s => s.active);
   } else {
-    // Pas de cache : sync GAS en background, afficher le statique
+    // Pas de cache : afficher statique immédiatement, sync GAS en background
     fetchGet({ action: 'services' })
       .then(fresh => {
-        if (Array.isArray(fresh) && fresh.length > 0) {
-          cacheSet('services', fresh);
-          if (onUpdate) onUpdate(fresh.filter(s => s.active));
-        }
+        const merged = mergeWithStatic(fresh);
+        cacheSet('services_v2', merged);
+        if (onUpdate) onUpdate(merged);
       })
       .catch(() => { /* GAS en cold start ou indisponible */ });
-    return immediate;
+    return staticActive;
   }
 }
+
 
 // ── GET /schedule ──────────────────────────────────────────────
 export async function getSchedule(onUpdate) {
