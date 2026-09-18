@@ -3,6 +3,7 @@
 // Gère les sous-créneaux (10/20 min), les périodes
 // occupées en gris, et la fermeture globale.
 // =============================================
+import { formatDateISO } from './date.js';
 
 export function timeToMinutes(timeStr) {
   if (!timeStr) return 0;
@@ -43,12 +44,12 @@ export function computeTimeSlots({
   const breakEndM = daySchedule?.breakEnd ? timeToMinutes(daySchedule.breakEnd) : null;
 
   const now = new Date();
-  const todayISO = now.toISOString().slice(0, 10);
+  const todayISO = formatDateISO(now);
   const isToday = selectedDate === todayISO;
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // 1. Si tous les créneaux sont fermés via le dashboard coiffeur
-  if (allSlotsClosed) {
+  // 1. Si tous les créneaux sont fermés via le dashboard coiffeur ou jour non actif
+  if (allSlotsClosed || daySchedule?.active === false) {
     const slots = [];
     for (let m = openM; m < closeM; m += 30) {
       slots.push({

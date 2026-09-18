@@ -8,13 +8,15 @@ import Contact      from './pages/Contact';
 import Admin        from './pages/Admin';
 import Suivi        from './pages/Suivi';
 import { useEffect, useState } from 'react';
-import { getShopInfo } from './services/api';
+import { getShopInfo, preloadBookingData } from './services/api';
 
 export default function App() {
   const [shop, setShop] = useState(null);
 
   useEffect(() => {
     getShopInfo().then(setShop).catch(() => {});
+    // Préchargement immédiat du calendrier, des horaires et des rendez-vous au démarrage du site
+    preloadBookingData();
   }, []);
 
   return (

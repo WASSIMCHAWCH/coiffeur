@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { getMonthDays, DAY_LABELS, MONTHS_FR, formatDateISO } from '../utils/date';
 
-// dayOffIndexes : tableau d'index (0=Lun..6=Dim) des jours fermés
+// dayOffIndexes : tableau d'index (0=Lun..6=Dim) des jours fermés (0 = Lundi par défaut)
 // blockedDates : tableau de strings "YYYY-MM-DD"
-export default function BookingCalendar({ selectedDate, onSelectDate, dayOffIndexes = [4], blockedDates = [] }) {
+export default function BookingCalendar({ selectedDate, onSelectDate, dayOffIndexes = [0], blockedDates = [] }) {
   const today = new Date();
   const [viewYear, setViewYear]   = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());

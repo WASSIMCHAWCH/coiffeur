@@ -482,16 +482,16 @@ function initSpreadsheet() {
   svcSheet.appendRow(['S003', 'Coupe + Barbe', 45, 'Le combo complet — coupe et barbe', '✨', true]);
   svcSheet.appendRow(['S004', 'Brushing', 10, 'Brushing rapide et mise en forme', '💨', true]);
 
-  // 3. Feuille Schedule (Horaires 09:00 - 21:00, Vendredi repos)
+  // 3. Feuille Schedule (Horaires 09:00 - 21:00, Lundi repos, Vendredi ouvert)
   let schSheet = ss.getSheetByName('Schedule');
   if (!schSheet) schSheet = ss.insertSheet('Schedule');
   schSheet.clear();
   schSheet.appendRow(['DAY', 'OPEN', 'CLOSE', 'BREAK_START', 'BREAK_END', 'ACTIVE']);
-  schSheet.appendRow(['Lundi', '09:00', '21:00', '', '', true]);
+  schSheet.appendRow(['Lundi', '', '', '', '', false]); // Repos
   schSheet.appendRow(['Mardi', '09:00', '21:00', '', '', true]);
   schSheet.appendRow(['Mercredi', '09:00', '21:00', '', '', true]);
   schSheet.appendRow(['Jeudi', '09:00', '21:00', '', '', true]);
-  schSheet.appendRow(['Vendredi', '', '', '', '', false]); // Repos
+  schSheet.appendRow(['Vendredi', '09:00', '21:00', '', '', true]);
   schSheet.appendRow(['Samedi', '09:00', '21:00', '', '', true]);
   schSheet.appendRow(['Dimanche', '09:00', '21:00', '', '', true]);
 

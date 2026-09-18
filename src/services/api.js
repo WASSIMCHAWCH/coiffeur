@@ -4,14 +4,18 @@
 // =============================================
 
 import { STATIC_SERVICES } from '../data/services.js';
+import { formatDateISO } from '../utils/date.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 // ── Cache localStorage (stale-while-revalidate) ──────────────
 const CACHE_TTL = {
-  services: 30 * 60 * 1000, // 30 min (les services changent rarement)
-  schedule: 30 * 60 * 1000, // 30 min (les horaires changent rarement)
-  shop:      10 * 60 * 1000, // 10 min
+  services:    30 * 60 * 1000, // 30 min
+  services_v2: 30 * 60 * 1000,
+  schedule:    30 * 60 * 1000,
+  schedule_v2: 30 * 60 * 1000,
+  shop:        10 * 60 * 1000, // 10 min
+  appts:        2 * 60 * 1000, // 2 min pour les créneaux/rendez-vous
 };
 
 function cacheGet(key) {
@@ -19,7 +23,9 @@ function cacheGet(key) {
     const raw = localStorage.getItem(`gar3a_cache_${key}`);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
-    const ttl = CACHE_TTL[key] ?? 5 * 60 * 1000;
+    const ttl = (key.startsWith('appts_') || key.startsWith('avail_'))
+      ? CACHE_TTL.appts
+      : (CACHE_TTL[key] ?? 5 * 60 * 1000);
     if (Date.now() - ts > ttl) return null; // expiré
     return data;
   } catch { return null; }
@@ -29,6 +35,20 @@ function cacheSet(key, data) {
   try {
     localStorage.setItem(`gar3a_cache_${key}`, JSON.stringify({ data, ts: Date.now() }));
   } catch { /* quota dépassé, on ignore */ }
+}
+
+export function invalidateAppointmentsCache(date) {
+  try {
+    if (date) {
+      localStorage.removeItem(`gar3a_cache_appts_${date}`);
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(`gar3a_cache_avail_${date}`)) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+  } catch {}
 }
 
 // ── Helper GET ────────────────────────────────────────────────
@@ -65,12 +85,15 @@ const FALLBACK_SHOP = {
   description: 'Bienvenue chez Mohamed Hechi (Gar3a). Coiffeur & Barber professionnel.',
 };
 
+// Horaires par défaut synchronisés avec Google Sheets :
+// Lundi = Repos (fermé), Mardi à Dimanche = Ouvert (09:00 - 21:00)
+// Vendredi est bien OUVERT !
 const FALLBACK_SCHEDULE = [
-  { day: 'Lundi',    open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
+  { day: 'Lundi',    open: null,    close: null,    breakStart: null, breakEnd: null, active: false },
   { day: 'Mardi',    open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
   { day: 'Mercredi', open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
   { day: 'Jeudi',    open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
-  { day: 'Vendredi', open: null,    close: null,    breakStart: null, breakEnd: null, active: false },
+  { day: 'Vendredi', open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
   { day: 'Samedi',   open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
   { day: 'Dimanche', open: '09:00', close: '21:00', breakStart: null, breakEnd: null, active: true  },
 ];
@@ -78,7 +101,6 @@ const FALLBACK_SCHEDULE = [
 // ── Fetch avec cache stale-while-revalidate ───────────────────
 // Retourne IMMÉDIATEMENT le cache (s'il existe) ou le fallback,
 // puis recharge l'API en arrière-plan silencieusement.
-// → Plus jamais de squelettes sur la page services !
 async function fetchWithCache(cacheKey, apiFn, fallback, onUpdate) {
   const cached = cacheGet(cacheKey);
 
@@ -93,15 +115,11 @@ async function fetchWithCache(cacheKey, apiFn, fallback, onUpdate) {
   }
 
   // ── Cas 2 : pas de cache → afficher FALLBACK immédiatement ──
-  // On lance la requête API en arrière-plan et on met à jour dès
-  // qu'elle répond (cold start GAS peut prendre 3-8s, pas question
-  // de bloquer l'affichage en attendant).
   apiFn().then(fresh => {
     cacheSet(cacheKey, fresh);
     if (onUpdate) onUpdate(fresh);
   }).catch(() => { /* silencieux */ });
 
-  // Retourner le fallback tout de suite → affichage instantané
   return fallback;
 }
 
@@ -111,89 +129,152 @@ export async function getShopInfo(onUpdate) {
 }
 
 // ── GET /services ──────────────────────────────────────────────
-// Architecture hybride :
-// 1. Retourne TOUJOURS STATIC_SERVICES immédiatement (0ms, 5 services garantis)
-// 2. GAS est appelé en background pour sync Sheets → fusionne avec le statique
-//    (GAS peut mettre à jour/ajouter mais ne peut pas SUPPRIMER les services statiques)
-// 3. Cache versionnée 'services_v2' pour invalider l'ancien cache GAS (3 services)
 export async function getServices(onUpdate) {
-  // Toujours afficher le statique immédiatement
   const staticActive = STATIC_SERVICES.filter(s => s.active);
 
-  // Fusion : STATIC_SERVICES est la base, GAS peut mettre à jour ou ajouter
-  // mais jamais supprimer un service statique (S004, S005 toujours présents)
   function mergeWithStatic(gasServices) {
     if (!Array.isArray(gasServices) || gasServices.length === 0) return staticActive;
     const merged = [...STATIC_SERVICES];
     gasServices.forEach(gasSvc => {
       const idx = merged.findIndex(s => s.id === gasSvc.id);
       if (idx >= 0) {
-        // GAS met à jour un service existant (durée, nom, description…)
         merged[idx] = { ...merged[idx], ...gasSvc };
       } else {
-        // GAS ajoute un nouveau service inconnu du statique
         merged.push(gasSvc);
       }
     });
     return merged.filter(s => s.active);
   }
 
-  // Clé 'services_v2' pour invalider l'ancien cache GAS (qui n'avait que 3 services)
   const cached = cacheGet('services_v2');
 
   if (cached) {
-    // Background revalidation depuis GAS
     fetchGet({ action: 'services' })
       .then(fresh => {
         const merged = mergeWithStatic(fresh);
         cacheSet('services_v2', merged);
         if (onUpdate) onUpdate(merged);
       })
-      .catch(() => { /* GAS indisponible, cache conservé */ });
-    // Retourner le cache fusionné (toujours >= 5 services)
+      .catch(() => {});
     return cached.filter(s => s.active);
   } else {
-    // Pas de cache : afficher statique immédiatement, sync GAS en background
     fetchGet({ action: 'services' })
       .then(fresh => {
         const merged = mergeWithStatic(fresh);
         cacheSet('services_v2', merged);
         if (onUpdate) onUpdate(merged);
       })
-      .catch(() => { /* GAS en cold start ou indisponible */ });
+      .catch(() => {});
     return staticActive;
   }
 }
 
-
 // ── GET /schedule ──────────────────────────────────────────────
 export async function getSchedule(onUpdate) {
-  return fetchWithCache('schedule', () => fetchGet({ action: 'schedule' }), FALLBACK_SCHEDULE, onUpdate);
+  return fetchWithCache('schedule_v2', () => fetchGet({ action: 'schedule' }), FALLBACK_SCHEDULE, onUpdate);
 }
 
 // ── GET /availability ──────────────────────────────────────────
 export async function getAvailability(date, serviceId) {
-  return fetchGet({ action: 'availability', date, serviceId });
+  if (!date) return null;
+  const cacheKey = `avail_${date}_${serviceId || ''}`;
+  const cached = cacheGet(cacheKey);
+
+  if (cached) {
+    fetchGet({ action: 'availability', date, serviceId })
+      .then(fresh => {
+        if (fresh && (fresh.allSlots || fresh.availableSlots)) {
+          cacheSet(cacheKey, fresh);
+        }
+      })
+      .catch(() => {});
+    return cached;
+  }
+
+  try {
+    const fresh = await fetchGet({ action: 'availability', date, serviceId });
+    if (fresh && (fresh.allSlots || fresh.availableSlots)) {
+      cacheSet(cacheKey, fresh);
+    }
+    return fresh;
+  } catch {
+    return null;
+  }
+}
+
+// ── GET /appointments (admin & calcul créneaux) ────────────────
+export async function getAppointments(date) {
+  if (!date) return [];
+  const cacheKey = `appts_${date}`;
+  const cached = cacheGet(cacheKey);
+
+  if (cached) {
+    fetchGet({ action: 'appointments', date })
+      .then(fresh => {
+        if (Array.isArray(fresh)) cacheSet(cacheKey, fresh);
+      })
+      .catch(() => {});
+    return cached;
+  }
+
+  try {
+    const fresh = await fetchGet({ action: 'appointments', date });
+    if (Array.isArray(fresh)) {
+      cacheSet(cacheKey, fresh);
+      return fresh;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Préchargement déclenché à l'ouverture du site web ──────────
+// Évite toute attente lorsque le client ouvre le calendrier
+export function preloadBookingData() {
+  try {
+    // 1. Horaires & Services en cache immédiat
+    getSchedule().catch(() => {});
+    getServices().catch(() => {});
+
+    // 2. Précharger les rendez-vous des 7 prochains jours
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const dateISO = formatDateISO(d);
+      getAppointments(dateISO).catch(() => {});
+    }
+  } catch {
+    // Silencieux
+  }
 }
 
 // ── POST /appointments ──────────────────────
 export async function createAppointment(data) {
-  return fetchPost({ action: 'book', ...data });
-}
-
-// ── GET /appointments (admin) ──────────────
-export async function getAppointments(date) {
-  return fetchGet({ action: 'appointments', date });
+  const res = await fetchPost({ action: 'book', ...data });
+  if (data?.date) {
+    invalidateAppointmentsCache(data.date);
+  }
+  return res;
 }
 
 // ── POST /cancel ────────────────────────────
-export async function cancelAppointment(appointmentId) {
-  return fetchPost({ action: 'cancel', appointmentId });
+export async function cancelAppointment(appointmentId, date) {
+  const res = await fetchPost({ action: 'cancel', appointmentId });
+  if (date) {
+    invalidateAppointmentsCache(date);
+  }
+  return res;
 }
 
 // ── POST /status ────────────────────────────
-export async function updateAppointmentStatus(appointmentId, status) {
-  return fetchPost({ action: 'update_status', appointmentId, status });
+export async function updateAppointmentStatus(appointmentId, status, date) {
+  const res = await fetchPost({ action: 'update_status', appointmentId, status });
+  if (date) {
+    invalidateAppointmentsCache(date);
+  }
+  return res;
 }
 
 // ── GET /appointment_status (suivi client) ──

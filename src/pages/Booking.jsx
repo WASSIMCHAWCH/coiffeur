@@ -71,9 +71,9 @@ export default function Booking() {
   }, []);
 
   // Index des jours fermés (0=Lun..6=Dim)
-  const dayOffIndexes = schedule
-    .map((day, i) => (!day.active ? i : null))
-    .filter(i => i !== null);
+  const dayOffIndexes = schedule && schedule.length > 0
+    ? schedule.map((day, i) => (!day.active ? i : null)).filter(i => i !== null)
+    : [0]; // Par défaut Mohamed se repose le Lundi (0), Vendredi est OUVERT
 
   // Charger les créneaux quand date + service sélectionnés (ou si allSlotsClosed change)
   useEffect(() => {
@@ -87,14 +87,14 @@ export default function Booking() {
       try {
         let dayAppts = [];
 
-        // 1. Tenter de récupérer les rendez-vous existants pour cette date
-        try {
-          const remote = await getAppointments(selectedDate);
-          if (Array.isArray(remote)) {
-            dayAppts = remote.filter(a => a.date === selectedDate || !a.date);
-          }
-        } catch {
-          // Fallback silencieux
+        // 1. Récupérer RDV et disponibilité EN PARALLÈLE (chargement instantané via cache)
+        const [remote, availData] = await Promise.all([
+          getAppointments(selectedDate).catch(() => []),
+          getAvailability(selectedDate, selectedService.id).catch(() => null),
+        ]);
+
+        if (Array.isArray(remote)) {
+          dayAppts = remote.filter(a => a.date === selectedDate || !a.date);
         }
 
         // 2. Ajouter les RDV enregistrés localement dans la session
@@ -106,24 +106,19 @@ export default function Booking() {
           // Ignorer
         }
 
-        // 3. Compléter via getAvailability si disponible
-        try {
-          const availData = await getAvailability(selectedDate, selectedService.id);
-          if (availData?.allSlots && availData?.availableSlots) {
-            const booked = availData.allSlots.filter(s => !availData.availableSlots.includes(s));
-            booked.forEach(s => {
-              if (!dayAppts.some(a => a.startTime === s)) {
-                dayAppts.push({
-                  startTime: s,
-                  endTime: null,
-                  duration: 30,
-                  status: 'CONFIRMED',
-                });
-              }
-            });
-          }
-        } catch {
-          // Ignorer
+        // 3. Compléter via getAvailability si créneaux réservés détectés
+        if (availData?.allSlots && availData?.availableSlots) {
+          const booked = availData.allSlots.filter(s => !availData.availableSlots.includes(s));
+          booked.forEach(s => {
+            if (!dayAppts.some(a => a.startTime === s)) {
+              dayAppts.push({
+                startTime: s,
+                endTime: null,
+                duration: 30,
+                status: 'CONFIRMED',
+              });
+            }
+          });
         }
 
         // 4. Horaires du jour
