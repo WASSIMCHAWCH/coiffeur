@@ -91,8 +91,7 @@ export default function Admin() {
 
   const today = new Date();
   const dayIndex = getDayIndex(selectedDate); // 0=Lun .. 4=Ven .. 6=Dim
-  const currentDaySchedule = schedule[dayIndex];
-  const isDayOff = currentDaySchedule ? !currentDaySchedule.active : dayIndex === 0;
+  const isDayOff = dayIndex === 0; // Lundi = jour de repos hebdomadaire
 
   const currentStoredPin = localStorage.getItem('gar3a_custom_pin') || defaultPin;
 
@@ -657,7 +656,7 @@ export default function Admin() {
           }}>
             <span style={{ fontSize: '1.4rem' }}>⛔</span>
             <div>
-              <strong style={{ fontSize: '0.9rem' }}>{currentDaySchedule?.day || 'Lundi'} — Jour de repos hebdomadaire</strong>
+              <strong style={{ fontSize: '0.9rem' }}>Lundi — Jour de repos hebdomadaire</strong>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                 Le salon est officiellement fermé pour les réservations en ligne.
               </div>
