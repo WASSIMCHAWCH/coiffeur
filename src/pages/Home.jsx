@@ -67,6 +67,37 @@ export default function Home() {
                   <ServiceCard key={svc.id} service={svc} interactive={false} />
                 ))
             }
+
+            {/* Carte Formule Famille — toujours affichée (service spécial) */}
+            {services.length > 0 && (
+              <div className="service-card famille-card" style={{ cursor: 'default' }}>
+                <span className="service-icon">👨‍👧‍👦</span>
+                <h3 className="service-name">Formule Famille</h3>
+                <span className="service-duration">⏱ Dès 35 min</span>
+                <p className="service-desc" style={{ marginTop: '12px' }}>
+                  Père (20 min) + 15 min par enfant. Tarif adapté pour toute la famille.
+                </p>
+                <div style={{ marginTop: '16px' }}>
+                  <Link
+                    to="/booking"
+                    style={{
+                      display: 'inline-block',
+                      background: 'var(--blue, #2563EB)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      padding: '5px 14px',
+                      borderRadius: '100px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    📅 Réserver
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="text-center mt-40">
