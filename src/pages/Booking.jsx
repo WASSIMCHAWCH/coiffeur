@@ -4,7 +4,7 @@ import ServiceCard from '../components/ServiceCard';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlot from '../components/TimeSlot';
 import FamilleModal from '../components/FamilleModal';
-import { getServices, getAvailability, getAppointments, getSchedule, createAppointment } from '../services/api';
+import { getServices, getAppointments, getSchedule, createAppointment } from '../services/api';
 import { formatDateFR, calcEndTime } from '../utils/date';
 import { validateBookingForm, hasErrors } from '../utils/validation';
 import { useShopStatus } from '../context/ShopStatusContext.jsx';
@@ -87,12 +87,8 @@ export default function Booking() {
       try {
         let dayAppts = [];
 
-        // 1. Récupérer RDV et disponibilité EN PARALLÈLE (chargement instantané via cache)
-        const [remote, availData] = await Promise.all([
-          getAppointments(selectedDate).catch(() => []),
-          getAvailability(selectedDate, selectedService.id).catch(() => null),
-        ]);
-
+        // 1. Récupérer les RDV du jour depuis l'API
+        const remote = await getAppointments(selectedDate).catch(() => []);
         if (Array.isArray(remote)) {
           dayAppts = remote.filter(a => a.date === selectedDate || !a.date);
         }
@@ -101,32 +97,22 @@ export default function Booking() {
         try {
           const local = JSON.parse(localStorage.getItem('gar3a_local_appointments') || '[]');
           const localForDay = local.filter(a => a.date === selectedDate);
-          dayAppts = [...dayAppts, ...localForDay];
+          // Dédupliquer : éviter les doublons si le RDV local est déjà dans la liste remote
+          localForDay.forEach(la => {
+            if (!dayAppts.some(a => a.id === la.id || (a.startTime === la.startTime && a.endTime === la.endTime))) {
+              dayAppts.push(la);
+            }
+          });
         } catch {
           // Ignorer
         }
 
-        // 3. Compléter via getAvailability si créneaux réservés détectés
-        if (availData?.allSlots && availData?.availableSlots) {
-          const booked = availData.allSlots.filter(s => !availData.availableSlots.includes(s));
-          booked.forEach(s => {
-            if (!dayAppts.some(a => a.startTime === s)) {
-              dayAppts.push({
-                startTime: s,
-                endTime: null,
-                duration: 30,
-                status: 'CONFIRMED',
-              });
-            }
-          });
-        }
-
-        // 4. Horaires du jour
+        // 3. Horaires du jour
         const dateObj = new Date(selectedDate + 'T12:00:00');
         const dayIdx = (dateObj.getDay() + 6) % 7;
         const daySchedule = schedule[dayIdx] || { open: '09:00', close: '21:00', active: true };
 
-        // 5. Calculer la grille de créneaux avec sous-créneaux et périodes occupées en gris
+        // 4. Calculer la grille de créneaux avec sous-créneaux et périodes occupées en gris
         const computed = computeTimeSlots({
           selectedDate,
           serviceDuration: selectedService.duration || 30,
@@ -224,6 +210,7 @@ export default function Booking() {
         date:        selectedDate,
         time:        selectedTime,
         endTime,
+        duration:    selectedService.duration,
         serviceId:   selectedService.isFamily ? 'S_FAMILLE' : selectedService.id,
         serviceName: selectedService.name,
         clientName:  form.name.trim(),

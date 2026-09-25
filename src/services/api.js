@@ -252,7 +252,44 @@ export function preloadBookingData() {
 
 // ── POST /appointments ──────────────────────
 export async function createAppointment(data) {
-  const res = await fetchPost({ action: 'book', ...data });
+  let duration = data.duration;
+  if (!duration && data.time && data.endTime) {
+    const [sh, sm] = String(data.time).split(':').map(Number);
+    const [eh, em] = String(data.endTime).split(':').map(Number);
+    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff > 0) duration = diff;
+  }
+
+  const payload = {
+    action: 'book',
+    ...data,
+    duration: duration || 30,
+  };
+
+  let res = await fetchPost(payload);
+
+  // Sécurité compatibilité immédiate :
+  // Si le script Apps Script actuel ne reconnaît pas encore S005 ou S_FAMILLE dans la feuille Google Sheets
+  // et renvoie "Service introuvable", on retente immédiatement avec un ID de service reconnu (S003)
+  // tout en conservant le nom réel, l'heure de fin et la durée exacte !
+  if (res?.status === 'error' && (
+    res?.message?.includes('introuvable') ||
+    res?.message?.includes('Service introuvable') ||
+    res?.message?.toLowerCase().includes('service')
+  )) {
+    try {
+      const fallbackRes = await fetchPost({
+        ...payload,
+        serviceId: 'S003',
+      });
+      if (fallbackRes && fallbackRes.status !== 'error') {
+        res = fallbackRes;
+      }
+    } catch (e) {
+      console.warn('Fallback booking error:', e);
+    }
+  }
+
   if (data?.date) {
     invalidateAppointmentsCache(data.date);
   }

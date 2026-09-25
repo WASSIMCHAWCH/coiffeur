@@ -19,6 +19,16 @@
 const SPREADSHEET_ID = '1tQPBPGtcZ3VZq72QAjHjLYPwmLixMH6L6Xgr9Ss-a7M';
 const SLOT_STEP_MINUTES = 10; // Intervalle entre créneaux (support des services 10/20/30 min)
 
+// Services officiels du salon (synchronisés avec le site web React)
+const DEFAULT_SERVICES = [
+  { id: 'S001', name: 'Coupe', duration: 20, description: 'Coupe de cheveux professionnelle', icon: '✂️', active: true },
+  { id: 'S002', name: 'Barbe', duration: 15, description: 'Taille et soin de la barbe', icon: '🧔', active: true },
+  { id: 'S003', name: 'Coupe + Barbe', duration: 35, description: 'Le combo complet — coupe et barbe', icon: '✨', active: true },
+  { id: 'S004', name: 'Brushing', duration: 10, description: 'Brushing rapide et mise en forme', icon: '💨', active: true },
+  { id: 'S005', name: 'Coupe + Barbe + Brushing', duration: 45, description: 'La formule complète : coupe, barbe et brushing', icon: '💈', active: true },
+  { id: 'S_FAMILLE', name: 'Formule Famille', duration: 35, description: 'Formule Famille (Père + Enfants)', icon: '👨‍👧‍👦', active: true },
+];
+
 // ── Point d'entrée GET ─────────────────────────────────────
 function doGet(e) {
   const params = (e && e.parameter) ? e.parameter : {};
@@ -30,6 +40,8 @@ function doGet(e) {
         return jsonResponse(getShop());
       case 'services':
         return jsonResponse(getServices());
+      case 'sync_services':
+        return jsonResponse(syncServicesToSheet());
       case 'availability':
         return jsonResponse(getAvailability(params.date, params.serviceId));
       case 'appointments':
@@ -111,26 +123,72 @@ function getShop() {
   return shop;
 }
 
+// ── Synchronisation automatique des services dans Google Sheets ────
+function syncServicesToSheet() {
+  try {
+    const sheet = getSheet('Services');
+    if (!sheet) return { status: 'error', message: 'Feuille Services introuvable' };
+    const data = sheet.getDataRange().getValues();
+    const existingIds = data.slice(1).map(r => String(r[0] || '').trim());
+    let added = 0;
+    DEFAULT_SERVICES.forEach(s => {
+      if (!existingIds.includes(s.id)) {
+        sheet.appendRow([s.id, s.name, s.duration, s.description, s.icon, s.active]);
+        added++;
+      }
+    });
+    return { status: 'success', added, total: DEFAULT_SERVICES.length };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
 // ── GET /services ───────────────────────────────────────────
 function getServices() {
   const sheet = getSheet('Services');
-  const [headers, ...rows] = sheet.getDataRange().getValues();
-  
-  return rows
+  if (!sheet) return DEFAULT_SERVICES;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    syncServicesToSheet();
+    return DEFAULT_SERVICES;
+  }
+
+  const [headers, ...rows] = data;
+  const sheetServices = rows
     .filter(row => row[0]) // Exclure lignes vides
     .map(row => {
       const obj = {};
       headers.forEach((h, i) => obj[h.toLowerCase()] = row[i]);
       return {
-        id:          obj.id,
-        name:        obj.name,
+        id:          String(obj.id || '').trim(),
+        name:        obj.name || '',
         duration:    parseInt(obj.duration) || 30,
         description: obj.description || '',
-        active:      obj.active === true || obj.active === 'TRUE' || obj.active === 1,
+        active:      obj.active === true || obj.active === 'TRUE' || obj.active === 1 || String(obj.active).toLowerCase() === 'true',
         icon:        obj.icon || '',
       };
     })
     .filter(s => s.active);
+
+  // Fusionner avec DEFAULT_SERVICES pour que S004, S005 et S_FAMILLE soient TOUJOURS disponibles
+  const merged = [...sheetServices];
+  let missingFound = false;
+  DEFAULT_SERVICES.forEach(defSvc => {
+    if (!merged.some(s => s.id === defSvc.id)) {
+      merged.push(defSvc);
+      missingFound = true;
+    }
+  });
+
+  // Si des services manquaient dans la feuille, les inscrire en tâche de fond
+  if (missingFound) {
+    try {
+      syncServicesToSheet();
+    } catch (e) {}
+  }
+
+  return merged;
 }
 
 // ── GET /schedule ───────────────────────────────────────────
@@ -158,14 +216,18 @@ function getAvailability(date, serviceId) {
   
   // 1. Récupérer le service
   const services = getServices();
-  const service  = services.find(s => s.id === serviceId);
+  let service  = services.find(s => s.id === serviceId);
+  if (!service) service = DEFAULT_SERVICES.find(s => s.id === serviceId);
   const duration = service ? service.duration : 30;
   
   // 2. Vérifier si date bloquée
-  const blocked = getSheet('BlockedDates').getDataRange().getValues();
-  const blockedList = blocked.slice(1).map(r => r[0]).filter(Boolean);
-  if (blockedList.includes(date)) {
-    return { date, availableSlots: [], allSlots: [], blocked: true };
+  const blockedSheet = getSheet('BlockedDates');
+  if (blockedSheet) {
+    const blocked = blockedSheet.getDataRange().getValues();
+    const blockedList = blocked.slice(1).map(r => r[0]).filter(Boolean);
+    if (blockedList.includes(date)) {
+      return { date, availableSlots: [], allSlots: [], blocked: true };
+    }
   }
   
   // 3. Récupérer les horaires du jour
@@ -197,7 +259,7 @@ function getAvailability(date, serviceId) {
       const slotStart = timeToMinutes(slot);
       const slotEnd   = slotStart + duration;
       const apptStart = timeToMinutes(a.startTime);
-      const apptEnd   = timeToMinutes(a.endTime);
+      const apptEnd   = a.endTime ? timeToMinutes(a.endTime) : (apptStart + 30);
       // Vérifier chevauchement
       return slotStart < apptEnd && slotEnd > apptStart;
     });
@@ -208,20 +270,33 @@ function getAvailability(date, serviceId) {
 
 // ── POST /book ──────────────────────────────────────────────
 function createAppointment(data) {
-  const { date, time, endTime, serviceId, serviceName, clientName, clientPhone } = data;
+  const { date, time, endTime, duration, serviceId, serviceName, clientName, clientPhone } = data;
   
   // Validation
-  if (!date || !time || !serviceId || !clientName || !clientPhone) {
+  if (!date || !time || !clientName || !clientPhone) {
     return { status: 'error', message: 'Données manquantes' };
   }
   
-  // Vérification service
+  // Vérification service (reconnaît sheet + DEFAULT_SERVICES + S_FAMILLE)
   const services = getServices();
-  const service  = services.find(s => s.id === serviceId);
-  if (!service) return { status: 'error', message: 'Service introuvable' };
+  let service = services.find(s => s.id === serviceId);
+  if (!service) {
+    service = DEFAULT_SERVICES.find(s => s.id === serviceId);
+  }
+  // Si formule famille ou service customisé avec nom fourni
+  if (!service && (serviceId === 'S_FAMILLE' || serviceName)) {
+    service = {
+      id: serviceId || 'S_CUSTOM',
+      name: serviceName || 'Prestation Coiffure',
+      duration: parseInt(duration) || 35,
+    };
+  }
   
-  const calculatedEnd = endTime || minutesToTime(timeToMinutes(time) + service.duration);
-  
+  const finalDuration = parseInt(duration) || (service ? service.duration : 30);
+  const calculatedEnd = endTime || minutesToTime(timeToMinutes(time) + finalDuration);
+  const finalServiceName = serviceName || (service ? service.name : 'Coiffure');
+  const finalServiceId = serviceId || (service ? service.id : 'S001');
+
   // ⚡ LockService — Anti-double réservation
   const lock = LockService.getScriptLock();
   try {
@@ -231,10 +306,56 @@ function createAppointment(data) {
   }
   
   try {
-    // Vérifier disponibilité DANS le verrou
-    const avail = getAvailability(date, serviceId);
-    if (!avail.availableSlots.includes(time)) {
-      return { status: 'error', code: 'SLOT_ALREADY_BOOKED', message: 'Ce créneau vient d\'être réservé.' };
+    const reqStart = timeToMinutes(time);
+    const reqEnd   = timeToMinutes(calculatedEnd);
+
+    // 1. Vérifier si date bloquée
+    const blockedSheet = getSheet('BlockedDates');
+    if (blockedSheet) {
+      const blocked = blockedSheet.getDataRange().getValues();
+      const blockedList = blocked.slice(1).map(r => r[0]).filter(Boolean);
+      if (blockedList.includes(date)) {
+        return { status: 'error', code: 'DATE_BLOCKED', message: 'Cette date est fermée aux réservations.' };
+      }
+    }
+
+    // 2. Vérifier horaires du jour
+    const dateObj    = new Date(date + 'T12:00:00');
+    const dayIndex   = (dateObj.getDay() + 6) % 7; // 0=Lun
+    const schedule   = getSchedule();
+    const daySchedule = schedule[dayIndex];
+    if (!daySchedule || !daySchedule.active) {
+      return { status: 'error', code: 'SHOP_CLOSED', message: 'Le salon est fermé ce jour-là.' };
+    }
+
+    // 3. Vérifier limites d'ouverture
+    const openM  = timeToMinutes(daySchedule.open || '09:00');
+    const closeM = timeToMinutes(daySchedule.close || '21:00');
+    if (reqStart < openM || reqEnd > closeM) {
+      return { status: 'error', code: 'OUT_OF_HOURS', message: 'Le créneau dépasse les heures d\'ouverture du salon.' };
+    }
+
+    // 4. Pause éventuelle
+    if (daySchedule.breakStart && daySchedule.breakEnd) {
+      const bsM = timeToMinutes(daySchedule.breakStart);
+      const beM = timeToMinutes(daySchedule.breakEnd);
+      if (reqStart < beM && reqEnd > bsM) {
+        return { status: 'error', code: 'BREAK_TIME', message: 'Le créneau chevauche la pause du salon.' };
+      }
+    }
+
+    // 5. Vérifier chevauchement direct avec RDV existants
+    const appts = getAppointmentsByDate(date);
+    const conflict = appts.some(a => {
+      if (a.status === 'CANCELLED') return false;
+      const aStart = timeToMinutes(a.startTime);
+      let aEnd = a.endTime ? timeToMinutes(a.endTime) : (aStart + 30);
+      if (aEnd <= aStart) aEnd = aStart + 30;
+      return reqStart < aEnd && reqEnd > aStart;
+    });
+
+    if (conflict) {
+      return { status: 'error', code: 'SLOT_ALREADY_BOOKED', message: 'Ce créneau vient d\'être réservé. Veuillez choisir un autre horaire.' };
     }
     
     // Enregistrer dans Sheets
@@ -245,7 +366,7 @@ function createAppointment(data) {
     sheet.appendRow([
       id, date, time, calculatedEnd,
       clientName.trim(), clientPhone.trim(),
-      serviceId, serviceName,
+      finalServiceId, finalServiceName,
       'PENDING', now
     ]);
     
@@ -255,8 +376,8 @@ function createAppointment(data) {
       date,
       startTime:   time,
       endTime:     calculatedEnd,
-      serviceId,
-      serviceName,
+      serviceId:   finalServiceId,
+      serviceName: finalServiceName,
       clientName:  clientName.trim(),
       clientPhone: clientPhone.trim(),
       status2:     'PENDING',
@@ -477,10 +598,12 @@ function initSpreadsheet() {
   if (!svcSheet) svcSheet = ss.insertSheet('Services');
   svcSheet.clear();
   svcSheet.appendRow(['ID', 'NAME', 'DURATION', 'DESCRIPTION', 'ICON', 'ACTIVE']);
-  svcSheet.appendRow(['S001', 'Coupe', 30, 'Coupe de cheveux professionnelle', '✂️', true]);
-  svcSheet.appendRow(['S002', 'Barbe', 20, 'Taille et soin de la barbe', '🧔', true]);
-  svcSheet.appendRow(['S003', 'Coupe + Barbe', 45, 'Le combo complet — coupe et barbe', '✨', true]);
+  svcSheet.appendRow(['S001', 'Coupe', 20, 'Coupe de cheveux professionnelle', '✂️', true]);
+  svcSheet.appendRow(['S002', 'Barbe', 15, 'Taille et soin de la barbe', '🧔', true]);
+  svcSheet.appendRow(['S003', 'Coupe + Barbe', 35, 'Le combo complet — coupe et barbe', '✨', true]);
   svcSheet.appendRow(['S004', 'Brushing', 10, 'Brushing rapide et mise en forme', '💨', true]);
+  svcSheet.appendRow(['S005', 'Coupe + Barbe + Brushing', 45, 'La formule complète : coupe, barbe et brushing', '💈', true]);
+  svcSheet.appendRow(['S_FAMILLE', 'Formule Famille', 35, 'Formule Famille (Père + Enfants)', '👨‍👧‍👦', true]);
 
   // 3. Feuille Schedule (Horaires 09:00 - 21:00, Lundi repos, Vendredi ouvert)
   let schSheet = ss.getSheetByName('Schedule');
