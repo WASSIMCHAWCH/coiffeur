@@ -129,8 +129,12 @@ export async function getShopInfo(onUpdate) {
 }
 
 // ── GET /services ──────────────────────────────────────────────
+// Note: S_FAMILLE est EXCLU de cette liste car il est géré par la carte
+// interactive FamilleModal dans l'interface. Il reste reconnu côté backend.
 export async function getServices(onUpdate) {
-  const staticActive = STATIC_SERVICES.filter(s => s.active);
+  // S_FAMILLE a sa propre carte interactive — ne pas l'afficher dans la liste standard
+  const HIDDEN_IDS = ['S_FAMILLE'];
+  const staticActive = STATIC_SERVICES.filter(s => s.active && !HIDDEN_IDS.includes(s.id));
 
   function mergeWithStatic(gasServices) {
     if (!Array.isArray(gasServices) || gasServices.length === 0) return staticActive;
@@ -143,7 +147,8 @@ export async function getServices(onUpdate) {
         merged.push(gasSvc);
       }
     });
-    return merged.filter(s => s.active);
+    // Exclure S_FAMILLE de l'affichage (carte spéciale dédiée)
+    return merged.filter(s => s.active && !HIDDEN_IDS.includes(s.id));
   }
 
   const cached = cacheGet('services_v2');
@@ -156,7 +161,7 @@ export async function getServices(onUpdate) {
         if (onUpdate) onUpdate(merged);
       })
       .catch(() => {});
-    return cached.filter(s => s.active);
+    return cached.filter(s => s.active && !HIDDEN_IDS.includes(s.id));
   } else {
     fetchGet({ action: 'services' })
       .then(fresh => {
